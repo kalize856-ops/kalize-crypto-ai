@@ -138,7 +138,8 @@ public final class OnDeviceLearningEngine {
         try { if(c.moveToFirst()) {
             m.momentum=c.getDouble(0);m.trend=c.getDouble(1);m.range=c.getDouble(2);
             m.bias=c.getDouble(3);m.samples=c.getInt(4);m.correct=c.getInt(5);
-            m.candleSamples=c.getInt(6);m.lastCandleTime=c.getLong(7);\n            m.tradeSamples=c.getInt(8);m.tradeCorrect=c.getInt(9);
+            m.candleSamples=c.getInt(6);m.lastCandleTime=c.getLong(7);
+            m.tradeSamples=c.getInt(8);m.tradeCorrect=c.getInt(9);
         }} finally { c.close(); }
         return m;
     }
@@ -146,7 +147,8 @@ public final class OnDeviceLearningEngine {
         ContentValues v=new ContentValues();v.put("model_key",k);
         v.put("w_momentum",m.momentum);v.put("w_trend",m.trend);v.put("w_range",m.range);
         v.put("bias",m.bias);v.put("samples",m.samples);v.put("correct",m.correct);
-        v.put("candle_samples",m.candleSamples);v.put("last_candle_time",m.lastCandleTime);\n        v.put("trade_samples",m.tradeSamples);v.put("trade_correct",m.tradeCorrect);
+        v.put("candle_samples",m.candleSamples);v.put("last_candle_time",m.lastCandleTime);
+        v.put("trade_samples",m.tradeSamples);v.put("trade_correct",m.tradeCorrect);
         v.put("updated_at",System.currentTimeMillis());
         db.insertWithOnConflict("ai_models",null,v,SQLiteDatabase.CONFLICT_REPLACE);
     }
