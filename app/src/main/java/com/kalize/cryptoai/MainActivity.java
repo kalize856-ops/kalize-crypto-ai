@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
     private int selectedCandleIntervalMinutes = 1;
     private String selectedSymbol = "BTCUSDT";
     private boolean receiverRegistered = false;
+    private String historyFilter = "ALL";
 
     private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -136,7 +137,8 @@ public class MainActivity extends Activity {
         modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");
         learningReportPanel = addPanel("AI MODEL PERFORMANCE REPORT", "Collecting learning statistics…");
         openTradesPanel = addPanel("OPEN SIMULATED POSITIONS", "No open positions.");
-        historyPanel = addPanel("RECENT PAPER-TRADE HISTORY", "No closed trades yet.");
+        historyPanel = addPanel("PAPER-TRADE JOURNAL", "No paper trades recorded yet.");
+        addHistoryFilterSelector();
 
         addPanel("HISTORICAL DATA",
                 "Learning window: 30 days\nStored candles: " + database.getStoredCandleCount() +
@@ -191,7 +193,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.6 · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.7 · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -539,22 +541,66 @@ public class MainActivity extends Activity {
         return report.toString();
     }
 
+    private void addHistoryFilterSelector() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final String[] filters = new String[]{"ALL", "OPEN", "CLOSED"};
+        final String[] labels = new String[]{"All trades", "Open", "Closed"};
+        for (int i = 0; i < filters.length; i++) {
+            final String filter = filters[i];
+            Button button = new Button(this);
+            button.setText(labels[i]);
+            button.setTextSize(11);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View view) {
+                    historyFilter = filter;
+                    if (historyPanel != null)
+                        historyPanel.setText(loadHistory(database.getReadableDatabase()));
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
+            params.setMargins(dp(2), dp(2), dp(2), dp(10));
+            row.addView(button, params);
+        }
+        content.addView(row);
+    }
+
     private String loadHistory(SQLiteDatabase db) {
+        String where = "ALL".equals(historyFilter) ? "" : " WHERE status=?";
         Cursor c = db.rawQuery(
-                "SELECT symbol,status,entry_price,exit_price,realized_pnl,opened_at FROM paper_trades ORDER BY opened_at DESC LIMIT 8",
-                null);
+                "SELECT id,symbol,status,quantity,entry_price,exit_price,stop_loss," +
+                "realized_pnl,opened_at,closed_at FROM paper_trades" + where +
+                " ORDER BY opened_at DESC LIMIT 100",
+                "ALL".equals(historyFilter) ? null : new String[]{historyFilter});
         StringBuilder b = new StringBuilder();
+        int count = 0;
+        java.text.SimpleDateFormat dateFormat =
+                new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
         try {
             while (c.moveToNext()) {
+                count++;
                 if (b.length() > 0) b.append("\n\n");
-                b.append(c.getString(0)).append("  ·  ").append(c.getString(1))
-                        .append("\nEntry: ").append(money(c.getDouble(2)));
-                if (!c.isNull(3)) b.append("   Exit: ").append(money(c.getDouble(3)));
-                if ("CLOSED".equals(c.getString(1)))
-                    b.append("\nNet P/L: ").append(money(c.getDouble(4)));
+                String status = c.getString(2);
+                b.append("#").append(c.getLong(0)).append("  ·  ")
+                        .append(c.getString(1)).append("  ·  ").append(status)
+                        .append("\nOpened: ").append(dateFormat.format(new java.util.Date(c.getLong(8))))
+                        .append("\nQuantity: ").append(fmt(c.getDouble(3), 6))
+                        .append("\nEntry: ").append(money(c.getDouble(4)))
+                        .append("\nStop-loss: ").append(c.getDouble(6) > 0
+                                ? money(c.getDouble(6)) : "Not set");
+                if (!c.isNull(5)) b.append("\nExit: ").append(money(c.getDouble(5)));
+                if ("CLOSED".equals(status)) {
+                    b.append("\nNet P/L: ").append(money(c.getDouble(7)));
+                    if (!c.isNull(9))
+                        b.append("\nClosed: ").append(dateFormat.format(new java.util.Date(c.getLong(9))));
+                }
             }
         } finally { c.close(); }
-        return b.length() == 0 ? "No paper trades recorded yet." : b.toString();
+        if (count == 0) return "No " + historyFilter.toLowerCase(Locale.US) +
+                " paper trades recorded yet.";
+        String header = "Showing " + count + (count == 100 ? " (latest 100)" : "") +
+                " · Filter: " + historyFilter;
+        return header + "\n\n" + b.toString();
     }
 
     private double readPositiveSetting(String key, double fallback) {
