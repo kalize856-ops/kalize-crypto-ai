@@ -61,14 +61,38 @@ public class MainActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
         int widthDp = (int)(getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        int side = widthDp >= 600 ? 32 : 18;
-        content.setPadding(dp(side), dp(22), dp(side), dp(28));
-        content.setBackgroundColor(Color.rgb(13, 19, 29));
-        scroll.addView(content);
+        boolean wideDashboard = widthDp >= 700;
+
+        LinearLayout dashboardRoot = new LinearLayout(this);
+        dashboardRoot.setOrientation(wideDashboard
+                ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        dashboardRoot.setBackgroundColor(Color.rgb(13, 19, 29));
+
+        LinearLayout leftColumn = new LinearLayout(this);
+        leftColumn.setOrientation(LinearLayout.VERTICAL);
+        leftColumn.setPadding(dp(wideDashboard ? 12 : 18), dp(22),
+                dp(wideDashboard ? 8 : 18), dp(28));
+        leftColumn.setBackgroundColor(Color.rgb(13, 19, 29));
+
+        if (wideDashboard) {
+            LinearLayout rightColumn = new LinearLayout(this);
+            rightColumn.setOrientation(LinearLayout.VERTICAL);
+            rightColumn.setPadding(dp(8), dp(22), dp(12), dp(28));
+            rightColumn.setBackgroundColor(Color.rgb(13, 19, 29));
+            dashboardRoot.addView(leftColumn, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+            dashboardRoot.addView(rightColumn, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+            content = leftColumn;
+        } else {
+            dashboardRoot.addView(leftColumn, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            content = leftColumn;
+        }
+        scroll.addView(dashboardRoot);
 
         addText("KALIZE CRYPTO AI", 24, Color.WHITE, true);
         addText("LITE  •  PAPER TRADING DASHBOARD", 12, Color.rgb(22, 192, 140), true);
@@ -96,6 +120,12 @@ public class MainActivity extends Activity {
         content.addView(equityChart, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(190)));
         addSpace(14);
+
+        if (wideDashboard) {
+            content = (LinearLayout) dashboardRoot.getChildAt(1);
+            addText("AI & PAPER-TRADING CONTROLS", 12, Color.rgb(22, 192, 140), true);
+            addSpace(8);
+        }
 
         modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");
         learningReportPanel = addPanel("AI MODEL PERFORMANCE REPORT", "Collecting learning statistics…");
@@ -135,7 +165,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.1 · Android 4.4.4+ · Binance public data · Local SQLite",
+        addText("Build 0.5.2 · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
