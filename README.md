@@ -14,7 +14,13 @@ A lightweight Android paper-trading research app. It is a simulator only: it doe
 - Candle table for OHLCV market history, with duplicate candle replacement.
 - Automatic cleanup of candles older than the latest 30 days.
 - Paper-trade ledger table and app-settings table.
+- On-device incremental learning from completed 1-minute candles and simulated trade outcomes.
+- Optional automatic AI paper trading, OFF by default, with local-only simulated entries and exits.
+- Simulated risk limits: up to 1% estimated risk per trade, 2% daily loss pause, and 25% maximum position size.
 - Real-money trading and exchange order submission are intentionally not included.
+
+## Automatic paper trading
+The dashboard includes an explicit ON/OFF control. It is OFF by default. When enabled, the app evaluates each completed candle and may open a virtual position only when the learned model has sufficient samples and an upward-bias signal. It closes virtual positions when the stop level is reached or the model reports downward bias. Trading decisions are educational simulations, not investment advice. No exchange credentials, real-money balances, or order endpoints are used.
 
 ## Build
 GitHub Actions builds a debug APK using JDK 17 and Gradle 8.7. Open the Actions tab and download the `kalize-crypto-ai-lite-debug` artifact after a successful run.
