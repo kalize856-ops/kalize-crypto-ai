@@ -19,6 +19,8 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
+import android.view.Gravity;
 import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -38,6 +40,7 @@ public class MainActivity extends Activity {
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
     private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, decisionJournalPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
+    private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
@@ -116,6 +119,17 @@ public class MainActivity extends Activity {
             content = leftColumn;
         }
         scroll.addView(dashboardRoot);
+        scroll.setClipToPadding(false);
+        scroll.setPadding(0, 0, 0, dp(118));
+
+        FrameLayout screenRoot = new FrameLayout(this);
+        screenRoot.addView(scroll, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        View profitBubble = createProfitBubble();
+        FrameLayout.LayoutParams profitBubbleParams = new FrameLayout.LayoutParams(
+                dp(184), dp(98), Gravity.BOTTOM | Gravity.RIGHT);
+        profitBubbleParams.setMargins(dp(12), dp(12), dp(14), dp(16));
+        screenRoot.addView(profitBubble, profitBubbleParams);
 
         addText("KALIZE CRYPTO AI", 24, Color.WHITE, true);
         addPanel("QUICK GUIDE",
@@ -228,10 +242,60 @@ public class MainActivity extends Activity {
         addSpace(12);
         addText("Prices are supplied by the live market feed. All trades use practice money.",
                 11, Color.GRAY, false);
-        setContentView(scroll);
+        setContentView(screenRoot);
         refreshDashboard();
     }
 
+
+
+    /** Fixed, non-draggable profit card sized for compact phone screens. */
+    private View createProfitBubble() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(14), dp(9), dp(14), dp(9));
+        card.setBackground(makeRoundedBackground(Color.rgb(22, 35, 51), 18));
+        if (Build.VERSION.SDK_INT >= 21) card.setElevation(dp(10));
+
+        profitBubbleLabel = new TextView(this);
+        profitBubbleLabel.setText("TOTAL PROFIT");
+        profitBubbleLabel.setTextColor(Color.rgb(177, 190, 207));
+        profitBubbleLabel.setTextSize(10);
+        profitBubbleLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        card.addView(profitBubbleLabel, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(17)));
+
+        profitBubbleValue = new TextView(this);
+        profitBubbleValue.setText("$0.00");
+        profitBubbleValue.setTextColor(Color.rgb(55, 222, 153));
+        profitBubbleValue.setTextSize(23);
+        profitBubbleValue.setSingleLine(true);
+        profitBubbleValue.setTypeface(null, android.graphics.Typeface.BOLD);
+        card.addView(profitBubbleValue, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(34)));
+
+        profitBubbleEquity = new TextView(this);
+        profitBubbleEquity.setText("Account $100.00");
+        profitBubbleEquity.setTextColor(Color.rgb(190, 202, 218));
+        profitBubbleEquity.setTextSize(11);
+        profitBubbleEquity.setSingleLine(true);
+        card.addView(profitBubbleEquity, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(18)));
+        return card;
+    }
+
+    /** Shows net simulated account result, including open-position value changes. */
+    private void updateProfitBubble(double equity) {
+        if (profitBubbleValue == null || profitBubbleLabel == null ||
+                profitBubbleEquity == null) return;
+        double profit = equity - 100.0;
+        boolean positive = profit >= 0.0;
+        profitBubbleLabel.setText(positive ? "TOTAL PROFIT" : "TOTAL LOSS");
+        profitBubbleValue.setText((positive ? "+" : "") + money(profit));
+        profitBubbleValue.setTextColor(positive
+                ? Color.rgb(55, 222, 153) : Color.rgb(255, 104, 112));
+        profitBubbleEquity.setText("Account " + money(equity));
+    }
 
     private void preparePracticeNotifications() {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -381,6 +445,7 @@ public class MainActivity extends Activity {
         } finally { positions.close(); }
         if (open.length() == 0) open.append("No open positions.");
         double equity = cash + marketValue;
+        updateProfitBubble(equity);
         double realized = scalar(db,
                 "SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED'");
         // Persist the highest observed virtual equity so drawdown survives app restarts.
