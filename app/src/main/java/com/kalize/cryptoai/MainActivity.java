@@ -896,6 +896,38 @@ public class MainActivity extends Activity {
             report.append(" · last completed candle about ");
             if (ageSeconds < 60L) report.append(ageSeconds).append(" sec ago");
             else report.append(ageSeconds / 60L).append(" min ago");
+
+            Cursor gaps = db.rawQuery(
+                    "SELECT open_time FROM candles WHERE symbol=? AND interval='1m' " +
+                    "ORDER BY open_time DESC LIMIT 61",
+                    new String[]{symbol});
+            int gapEvents = 0;
+            long missingMinutes = 0L;
+            long mostRecentGapAge = -1L;
+            long newerTime = -1L;
+            int samples = 0;
+            try {
+                while (gaps.moveToNext()) {
+                    long olderTime = gaps.getLong(0);
+                    samples++;
+                    if (newerTime > 0L) {
+                        long missing = Math.max(0L, (newerTime - olderTime) / 60000L - 1L);
+                        if (missing > 0L) {
+                            gapEvents++;
+                            missingMinutes += missing;
+                            if (mostRecentGapAge < 0L)
+                                mostRecentGapAge = Math.max(0L, (now - newerTime) / 60000L);
+                        }
+                    }
+                    newerTime = olderTime;
+                }
+            } finally { gaps.close(); }
+            report.append("\n  Recent 60-candle integrity: ");
+            if (samples < 2) report.append("not enough candles to assess");
+            else if (gapEvents == 0) report.append("no missing-minute gaps detected");
+            else report.append(gapEvents).append(" gap(s), ")
+                    .append(missingMinutes).append(" missing minute(s); latest gap near ")
+                    .append(mostRecentGapAge).append(" min ago");
         }
         report.append("\n\nFresh: ").append(fresh)
                 .append(" · Delayed: ").append(delayed)
