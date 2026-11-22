@@ -35,6 +35,10 @@ public final class AutoPaperTradingController {
     public synchronized String onCompletedCandle(String symbol, String interval,
                                                    double marketPrice) {
         if (!isEnabled()) return "Automatic paper trading is off.";
+        if (database.isVirtualCashDepleted()) {
+            setEnabled(false);
+            return "Virtual cash depleted. Automatic paper trading has been paused; reset the simulation to restart.";
+        }
         if (!finitePositive(marketPrice)) return "Skipped: invalid market price.";
 
         OnDeviceLearningEngine.Assessment assessment = learner.assess(symbol, interval);
@@ -67,6 +71,10 @@ public final class AutoPaperTradingController {
         }
 
         double cash = database.getCashBalance();
+        if (cash <= 0.005) {
+            setEnabled(false);
+            return "Virtual cash depleted. Automatic paper trading has been paused.";
+        }
         double equity = cash + trading.getOpenEntryValue();
         double stop = marketPrice * (1.0 - STOP_DISTANCE);
         double riskBudget = equity * PaperTradingEngine.MAX_RISK_PER_TRADE;
