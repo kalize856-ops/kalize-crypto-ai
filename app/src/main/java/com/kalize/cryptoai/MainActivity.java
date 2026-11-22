@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketHealthPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
+    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
     private Button autoButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
                 marketStatus.setText((status == null ? "Waiting for market feed" : status) +
                         "\nCompleted 1m candles stored: " + database.getStoredCandleCount());
                 if (marketHealthPanel != null) marketHealthPanel.setText(loadMarketHealth());
+                if (marketConditionPanel != null) marketConditionPanel.setText(loadMarketConditions());
                 refreshDashboard();
             }
         }
@@ -118,6 +119,7 @@ public class MainActivity extends Activity {
         marketQuotes = addPanel("LIVE QUOTES · 24-HOUR SNAPSHOT",
                 "Waiting for live ticker updates…\nLast price, daily change, high, low and quote volume.");
         marketHealthPanel = addPanel("MARKET DATA HEALTH", loadMarketHealth());
+        marketConditionPanel = addPanel("RECENT MARKET CONDITIONS · DESCRIPTIVE", loadMarketConditions());
         addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
         addText("Choose a pair, candle interval and history range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
         addPairSelector();
@@ -300,6 +302,7 @@ public class MainActivity extends Activity {
 
         openTradesPanel.setText(open.toString());
         if (marketHealthPanel != null) marketHealthPanel.setText(loadMarketHealth());
+        if (marketConditionPanel != null) marketConditionPanel.setText(loadMarketConditions());
         refreshCharts(db);
         historyPanel.setText(loadHistory(db));
         if (performancePanel != null) performancePanel.setText(loadPerformanceReport(db));
@@ -942,6 +945,56 @@ public class MainActivity extends Activity {
                 .append("\n\nFresh ≤ 3 min · Delayed 3–5 min · Stale > 5 min.")
                 .append("\nA stale feed is a data warning, not a market signal.");
         return report.toString();
+    }
+
+    /**
+     * Descriptive recent range statistics from up to 60 completed one-minute candles.
+     * These measurements describe recent movement and are not trading signals.
+     */
+    private String loadMarketConditions() {
+        if (database == null) return "Waiting for local market database…";
+        SQLiteDatabase db = database.getReadableDatabase();
+        String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+        StringBuilder out = new StringBuilder();
+        for (String symbol : symbols) {
+            Cursor c = db.rawQuery(
+                    "SELECT high,low,close FROM candles WHERE symbol=? AND interval='1m' " +
+                    "ORDER BY open_time DESC LIMIT 60",
+                    new String[]{symbol});
+            double totalRangePct = 0.0;
+            double totalAbsMovePct = 0.0;
+            double previousClose = -1.0;
+            int rangeSamples = 0, moveSamples = 0;
+            try {
+                while (c.moveToNext()) {
+                    double high = c.getDouble(0);
+                    double low = c.getDouble(1);
+                    double close = c.getDouble(2);
+                    if (close > 0.0 && high >= low) {
+                        totalRangePct += ((high - low) / close) * 100.0;
+                        rangeSamples++;
+                        if (previousClose > 0.0) {
+                            totalAbsMovePct += Math.abs((previousClose - close) / close) * 100.0;
+                            moveSamples++;
+                        }
+                    }
+                    previousClose = close;
+                }
+            } finally { c.close(); }
+            if (out.length() > 0) out.append("\\n\\n");
+            out.append(symbol).append(": ");
+            if (rangeSamples == 0) out.append("Not enough completed candles");
+            else {
+                out.append("Average high-low range: ")
+                        .append(String.format(Locale.US, "%.4f%%", totalRangePct / rangeSamples))
+                        .append("\\nAverage absolute close change: ")
+                        .append(moveSamples == 0 ? "Not available" :
+                                String.format(Locale.US, "%.4f%%", totalAbsMovePct / moveSamples))
+                        .append("\\nCandles measured: ").append(rangeSamples);
+            }
+        }
+        out.append("\\n\\nDescriptive statistics from recent 1-minute candles only. Not predictions or instructions.");
+        return out.toString();
     }
 
     private double latestPrice(SQLiteDatabase db, String symbol) {
