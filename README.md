@@ -159,3 +159,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Prevents rapid close-and-reopen churn while allowing other markets to be evaluated independently.
 - Does not delay stop-loss monitoring or interfere with existing open-position management.
 - Paper trading only; no real orders or funds.
+
+
+### Build 0.5.29 — fresh-candle entry validation
+- New simulated positions are paused unless the latest three one-minute candles are present, fresh (latest candle no older than three minutes), and spaced consistently.
+- This avoids opening virtual positions from stale or gapped market data after a connection interruption.
+- Existing simulated positions continue to be monitored and managed; the validation only gates new entries.
+- Paper trading only; no real orders or funds.
