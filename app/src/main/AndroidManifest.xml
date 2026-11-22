@@ -13,7 +13,7 @@
         <activity
             android:name=".MainActivity"
             android:label="Kalize Crypto AI Lite"
-            android:screenOrientation="portrait"
+            android:screenOrientation="landscape"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
