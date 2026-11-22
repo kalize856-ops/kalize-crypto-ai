@@ -166,3 +166,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - This avoids opening virtual positions from stale or gapped market data after a connection interruption.
 - Existing simulated positions continue to be monitored and managed; the validation only gates new entries.
 - Paper trading only; no real orders or funds.
+
+
+### Build 0.5.30 — short-term signal confirmation
+- Before opening a new virtual position, the controller checks the latest four completed candles.
+- At least two of the latest three candle-to-candle moves must be upward, and the newest close must not show a sharp pullback beyond the configured 0.2% tolerance.
+- The check is applied only to new entries; stop-loss monitoring and existing position management continue unchanged.
+- This may reduce the number of simulated entries and does not predict outcomes. Paper trading only.
