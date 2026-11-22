@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
+    private TextView marketStatus, marketHealthPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
     private Button autoButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
                 String status = intent.getStringExtra(MarketDataService.EXTRA_STATUS);
                 marketStatus.setText((status == null ? "Waiting for market feed" : status) +
                         "\nCompleted 1m candles stored: " + database.getStoredCandleCount());
+                if (marketHealthPanel != null) marketHealthPanel.setText(loadMarketHealth());
                 refreshDashboard();
             }
         }
@@ -110,6 +111,7 @@ public class MainActivity extends Activity {
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
         marketQuotes = addPanel("LIVE QUOTES · 24-HOUR SNAPSHOT",
                 "Waiting for live ticker updates…\nLast price, daily change, high, low and quote volume.");
+        marketHealthPanel = addPanel("MARKET DATA HEALTH", loadMarketHealth());
         addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
         addText("Choose a pair, candle interval and history range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
         addPairSelector();
@@ -196,7 +198,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.12 · Daily performance breakdown · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.13 · Live market-data health monitor · Daily performance breakdown · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -291,6 +293,7 @@ public class MainActivity extends Activity {
                 (cashDepleted ? "\nStatus: no virtual cash available. Use Reset simulation to begin a new account." : ""));
 
         openTradesPanel.setText(open.toString());
+        if (marketHealthPanel != null) marketHealthPanel.setText(loadMarketHealth());
         refreshCharts(db);
         historyPanel.setText(loadHistory(db));
         if (performancePanel != null) performancePanel.setText(loadPerformanceReport(db));
@@ -765,6 +768,46 @@ public class MainActivity extends Activity {
         } catch (NumberFormatException ignored) {
             return fallback;
         }
+    }
+
+    /** Reports freshness of the latest completed 1-minute candle for each tracked pair. */
+    private String loadMarketHealth() {
+        if (database == null) return "Waiting for local market database…";
+        SQLiteDatabase db = database.getReadableDatabase();
+        String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+        StringBuilder report = new StringBuilder();
+        long now = System.currentTimeMillis();
+        int fresh = 0, delayed = 0, stale = 0, missing = 0;
+        for (String symbol : symbols) {
+            Cursor c = db.rawQuery(
+                    "SELECT MAX(open_time) FROM candles WHERE symbol=? AND interval='1m'",
+                    new String[]{symbol});
+            long openTime = 0L;
+            try {
+                if (c.moveToFirst() && !c.isNull(0)) openTime = c.getLong(0);
+            } finally { c.close(); }
+            if (report.length() > 0) report.append("\\n");
+            report.append(symbol).append(" · ");
+            if (openTime <= 0L) {
+                report.append("NO CANDLE DATA");
+                missing++;
+                continue;
+            }
+            long ageSeconds = Math.max(0L, now - (openTime + 60000L)) / 1000L;
+            if (ageSeconds <= 180L) { report.append("FRESH"); fresh++; }
+            else if (ageSeconds <= 300L) { report.append("DELAYED"); delayed++; }
+            else { report.append("STALE"); stale++; }
+            report.append(" · last completed candle about ");
+            if (ageSeconds < 60L) report.append(ageSeconds).append(" sec ago");
+            else report.append(ageSeconds / 60L).append(" min ago");
+        }
+        report.append("\\n\\nFresh: ").append(fresh)
+                .append(" · Delayed: ").append(delayed)
+                .append(" · Stale: ").append(stale)
+                .append(" · Missing: ").append(missing)
+                .append("\\n\\nFresh ≤ 3 min · Delayed 3–5 min · Stale > 5 min.")
+                .append("\\nA stale feed is a data warning, not a market signal.");
+        return report.toString();
     }
 
     private double latestPrice(SQLiteDatabase db, String symbol) {
