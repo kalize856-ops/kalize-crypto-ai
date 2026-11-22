@@ -45,6 +45,12 @@ public final class PaperTradingEngine {
         db.beginTransaction();
         try {
             double cash = scalar(db, "SELECT cash_balance FROM wallet WHERE id=1");
+            double dailyPnl = scalar(db, "SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED' AND closed_at >= " +
+                    (System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L)));
+            double startingBalance = scalar(db, "SELECT starting_balance FROM wallet WHERE id=1");
+            if (dailyPnl <= -(startingBalance * DAILY_LOSS_LIMIT)) {
+                return fail("Daily simulated loss limit reached. New positions are paused until tomorrow.");
+            }
             double equity = cash + scalar(db,
                     "SELECT COALESCE(SUM(quantity*entry_price),0) FROM paper_trades WHERE status='OPEN'");
             int openCount = (int) scalar(db,
