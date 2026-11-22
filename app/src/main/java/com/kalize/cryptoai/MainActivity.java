@@ -981,19 +981,19 @@ public class MainActivity extends Activity {
                     previousClose = close;
                 }
             } finally { c.close(); }
-            if (out.length() > 0) out.append("\\n\\n");
+            if (out.length() > 0) out.append("\n\n");
             out.append(symbol).append(": ");
             if (rangeSamples == 0) out.append("Not enough completed candles");
             else {
                 out.append("Average high-low range: ")
                         .append(String.format(Locale.US, "%.4f%%", totalRangePct / rangeSamples))
-                        .append("\\nAverage absolute close change: ")
+                        .append("\nAverage absolute close change: ")
                         .append(moveSamples == 0 ? "Not available" :
                                 String.format(Locale.US, "%.4f%%", totalAbsMovePct / moveSamples))
-                        .append("\\nCandles measured: ").append(rangeSamples);
+                        .append("\nCandles measured: ").append(rangeSamples);
             }
         }
-        out.append("\\n\\nDescriptive statistics from recent 1-minute candles only. Not predictions or instructions.");
+        out.append("\n\nDescriptive statistics from recent 1-minute candles only. Not predictions or instructions.");
         return out.toString();
     }
 
