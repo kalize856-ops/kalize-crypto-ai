@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.DatabaseUtils;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
@@ -205,7 +204,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.13 · Live market-data health monitor · Daily performance breakdown · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.15 · CSV journal export · Live market-data health monitor · Daily performance breakdown · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -777,7 +776,7 @@ public class MainActivity extends Activity {
             output = getContentResolver().openOutputStream(uri);
             if (output == null) throw new IOException("Unable to open selected file");
             writer = new BufferedWriter(new OutputStreamWriter(output, "UTF-8"));
-            writer.write("trade_id,symbol,side,quantity,entry_price,exit_price,stop_loss,realized_pnl,fees,status,opened_at_utc,closed_at_utc,ai_probability,ai_interval");
+            writer.write("trade_id,symbol,side,quantity,entry_price,exit_price,stop_loss,realized_pnl,fees,status,opened_at_epoch_ms,closed_at_epoch_ms,ai_probability,ai_interval");
             writer.newLine();
             while (cursor.moveToNext()) {
                 StringBuilder line = new StringBuilder();
