@@ -173,3 +173,12 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - At least two of the latest three candle-to-candle moves must be upward, and the newest close must not show a sharp pullback beyond the configured 0.2% tolerance.
 - The check is applied only to new entries; stop-loss monitoring and existing position management continue unchanged.
 - This may reduce the number of simulated entries and does not predict outcomes. Paper trading only.
+
+
+## AI Evolution Mode (0.5.31)
+- Adds an AI Evolution Mode dashboard monitor alongside the existing learning report.
+- The active on-device learner continues incremental learning from completed candles and AI-tagged paper-trade outcomes.
+- Uses walk-forward validation to check whether a future challenger model has enough unseen examples, beats a simple previous-move baseline by at least 2 percentage points in balanced accuracy, and has confidence calibration error no higher than 15%.
+- The monitor reports evidence and promotion readiness; it does not silently replace the active model or loosen trading safeguards.
+- Any future model/strategy candidate must be tested in replay and paper-only observation before promotion.
+- All trading remains simulated. No real exchange orders, funds or credentials are supported, and no performance is guaranteed.
