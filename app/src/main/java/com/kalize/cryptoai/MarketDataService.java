@@ -40,7 +40,7 @@ public final class MarketDataService extends Service {
     private OnDeviceLearningEngine learner;
     private boolean stoppedByUser = false;
     private boolean connecting = false;
-    private int retrySeconds = 2;
+    private int retrySeconds = 2;\n    private Thread backfillThread;
 
     private final Runnable reconnect = new Runnable() {
         @Override public void run() { connect(); }
@@ -55,7 +55,7 @@ public final class MarketDataService extends Service {
                 .connectTimeout(20, TimeUnit.SECONDS)
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .build();
-        createNotificationChannel();
+        createNotificationChannel();\n        startHistoricalBackfill();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -111,6 +111,76 @@ public final class MarketDataService extends Service {
                 scheduleReconnect();
             }
         });
+    }
+
+    /** Downloads up to 30 days of completed one-minute candles without blocking the feed. */
+    private void startHistoricalBackfill() {
+        backfillThread = new Thread(new Runnable() {
+            @Override public void run() {
+                String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+                try {
+                    long end = System.currentTimeMillis();
+                    long start = end - 30L * 24L * 60L * 60L * 1000L;
+                    for (String symbol : symbols) {
+                        long cursor = start;
+                        while (!Thread.currentThread().isInterrupted() && cursor < end) {
+                            String url = "https://api.binance.com/api/v3/klines?symbol=" +
+                                    symbol + "&interval=1m&startTime=" + cursor +
+                                    "&endTime=" + end + "&limit=1000";
+                            java.net.HttpURLConnection connection =
+                                    (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                            connection.setConnectTimeout(15000);
+                            connection.setReadTimeout(20000);
+                            connection.setRequestMethod("GET");
+                            try {
+                                int code = connection.getResponseCode();
+                                if (code != 200) throw new java.io.IOException("HTTP " + code);
+                                java.io.BufferedReader reader = new java.io.BufferedReader(
+                                        new java.io.InputStreamReader(connection.getInputStream(), "UTF-8"));
+                                StringBuilder body = new StringBuilder();
+                                String line;
+                                while ((line = reader.readLine()) != null) body.append(line);
+                                reader.close();
+                                org.json.JSONArray rows = new org.json.JSONArray(body.toString());
+                                if (rows.length() == 0) break;
+                                long last = cursor;
+                                for (int i = 0; i < rows.length(); i++) {
+                                    org.json.JSONArray row = rows.getJSONArray(i);
+                                    long openTime = row.getLong(0);
+                                    if (openTime <= 0) continue;
+                                    database.saveCandle(symbol, "1m", openTime,
+                                            row.getDouble(1), row.getDouble(2),
+                                            row.getDouble(3), row.getDouble(4), row.getDouble(5));
+                                    last = Math.max(last, openTime);
+                                }
+                                if (last < cursor || rows.length() < 1000) break;
+                                cursor = last + 60000L;
+                            } finally {
+                                connection.disconnect();
+                            }
+                            try { Thread.sleep(120L); }
+                            catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                        broadcast("Historical candles loaded · " + symbol);
+                    }
+                    database.cleanExpiredCandles();
+                    for (String symbol : symbols) {
+                        while (!Thread.currentThread().isInterrupted()) {
+                            int learned = learner.learn(symbol, "1m");
+                            if (learned == 0) break;
+                        }
+                    }
+                    broadcast("30-day history ready · AI training caught up");
+                    updateNotification("30-day history ready · live feed active");
+                } catch (Exception error) {
+                    broadcast("Historical backfill paused · live feed remains active");
+                }
+            }
+        }, "Kalize-History-Backfill");
+        backfillThread.setDaemon(true);
+        backfillThread.start();
     }
 
     private void handleMessage(String raw) {
@@ -201,7 +271,7 @@ public final class MarketDataService extends Service {
         handler.removeCallbacks(reconnect);
         if (socket != null) socket.close(1000, "Service stopped");
         if (client != null) client.dispatcher().executorService().shutdown();
-        if (database != null) database.closeStore();
+        if (backfillThread != null) backfillThread.interrupt();\n        if (database != null) database.closeStore();
         super.onDestroy();
     }
 
