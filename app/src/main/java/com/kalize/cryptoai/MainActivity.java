@@ -16,6 +16,7 @@ import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.util.Locale;
+import java.util.ArrayList;
 
 /** Responsive-by-width paper dashboard; API 19+ and simulation only. */
 public class MainActivity extends Activity {
@@ -29,6 +30,7 @@ public class MainActivity extends Activity {
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
+    private int selectedCandleIntervalMinutes = 1;
     private String selectedSymbol = "BTCUSDT";
     private boolean receiverRegistered = false;
 
@@ -77,8 +79,9 @@ public class MainActivity extends Activity {
                 "Starting persistent WebSocket connection…\nBTC / USDT    waiting\n" +
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
         addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
-        addText("Choose a pair and time range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
+        addText("Choose a pair, candle interval and history range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
         addPairSelector();
+        addIntervalSelector();
         addRangeSelector();
         priceChart = new CandlestickChartView(this);
         priceChart.setBackgroundColor(Color.rgb(27, 39, 54));
@@ -132,7 +135,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.0 · Android 4.4.4+ · Binance public data · Local SQLite",
+        addText("Build 0.5.1 · Android 4.4.4+ · Binance public data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -210,6 +213,30 @@ public class MainActivity extends Activity {
     }
 
 
+    private void addIntervalSelector() {
+        addText("CANDLE INTERVAL", 11, Color.rgb(175, 187, 202), true);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final int[] intervals = new int[]{1, 5, 15, 60, 240, 1440};
+        final String[] labels = new String[]{"1m", "5m", "15m", "1h", "4h", "1d"};
+        for (int i = 0; i < intervals.length; i++) {
+            final int interval = intervals[i];
+            Button button = new Button(this);
+            button.setText(labels[i]);
+            button.setTextSize(10);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View view) {
+                    selectedCandleIntervalMinutes = interval;
+                    refreshDashboard();
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1f);
+            params.setMargins(dp(1), dp(2), dp(1), dp(8));
+            row.addView(button, params);
+        }
+        content.addView(row);
+    }
+
     private void addRangeSelector() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -241,35 +268,60 @@ public class MainActivity extends Activity {
         return "30 days";
     }
 
+    private String intervalLabel(int minutes) {
+        if (minutes == 1) return "1m";
+        if (minutes == 5) return "5m";
+        if (minutes == 15) return "15m";
+        if (minutes == 60) return "1h";
+        if (minutes == 240) return "4h";
+        return "1d";
+    }
+
     private void refreshCharts(SQLiteDatabase db) {
         if (priceChart != null) {
             Cursor candles = db.rawQuery(
-                    "SELECT open,high,low,close FROM candles WHERE symbol=? AND interval='1m' " +
+                    "SELECT open_time,open,high,low,close FROM candles WHERE symbol=? AND interval='1m' " +
                     "ORDER BY open_time DESC LIMIT " + selectedRangeMinutes,
                     new String[]{selectedSymbol});
-            int count = candles.getCount();
-            int plotted = Math.min(120, count);
-            double[] o = new double[plotted], h = new double[plotted];
-            double[] l = new double[plotted], close = new double[plotted];
+            ArrayList<double[]> newestFirst = new ArrayList<double[]>();
             try {
-                int sourceIndex = 0;
-                int lastBucket = -1;
                 while (candles.moveToNext()) {
-                    int bucket = count == 0 ? 0 : (sourceIndex * plotted) / count;
-                    if (bucket != lastBucket && bucket < plotted) {
-                        int targetIndex = plotted - 1 - bucket;
-                        o[targetIndex] = candles.getDouble(0);
-                        h[targetIndex] = candles.getDouble(1);
-                        l[targetIndex] = candles.getDouble(2);
-                        close[targetIndex] = candles.getDouble(3);
-                        lastBucket = bucket;
-                    }
-                    sourceIndex++;
+                    newestFirst.add(new double[]{candles.getLong(0), candles.getDouble(1),
+                            candles.getDouble(2), candles.getDouble(3), candles.getDouble(4)});
                 }
             } finally { candles.close(); }
-            // The query is newest-first; arrays are filled in reverse chronological order.
+
+            // Aggregate completed 1-minute source candles into genuine OHLC intervals.
+            ArrayList<double[]> aggregated = new ArrayList<double[]>();
+            long intervalMs = selectedCandleIntervalMinutes * 60000L;
+            double[] current = null;
+            for (int i = newestFirst.size() - 1; i >= 0; i--) {
+                double[] source = newestFirst.get(i);
+                long bucket = ((long) source[0]) / intervalMs;
+                if (current == null || (long) current[0] != bucket) {
+                    current = new double[]{bucket, source[1], source[2], source[3], source[4]};
+                    aggregated.add(current);
+                } else {
+                    current[2] = Math.max(current[2], source[2]);
+                    current[3] = Math.min(current[3], source[3]);
+                    current[4] = source[4];
+                }
+            }
+
+            int plotted = Math.min(300, aggregated.size());
+            double[] o = new double[plotted], h = new double[plotted];
+            double[] l = new double[plotted], close = new double[plotted];
+            int start = aggregated.size() - plotted;
+            for (int i = 0; i < plotted; i++) {
+                double[] bar = aggregated.get(start + i);
+                o[i] = bar[1];
+                h[i] = bar[2];
+                l[i] = bar[3];
+                close[i] = bar[4];
+            }
             priceChart.setCandles(o, h, l, close, selectedSymbol + " · " +
-                    rangeLabel(selectedRangeMinutes) + " · " + plotted + " OHLC candles");
+                    intervalLabel(selectedCandleIntervalMinutes) + " · " +
+                    rangeLabel(selectedRangeMinutes) + " · " + plotted + " candles");
         }
         if (equityChart != null) {
             Cursor trades = db.rawQuery(
