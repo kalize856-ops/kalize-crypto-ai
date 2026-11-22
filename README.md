@@ -97,3 +97,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Adds a daily summary for the selected performance period, showing closed trades, wins and net simulated P/L.
 - Displays up to the latest 14 days in the selected period, ordered newest first.
 - Uses closed virtual trades only; the report is historical and not a forecast.
+
+
+### Build 0.5.13 — live market-data health monitor
+- Adds a dashboard panel that checks the newest completed 1-minute candle for BTC, ETH and SOL.
+- Labels each symbol's feed as fresh (up to 3 minutes), delayed (over 3 and up to 5 minutes), stale (over 5 minutes), or missing.
+- Shows the approximate age of each latest candle and a combined status count.
+- This is a data-quality warning only; it does not create trading signals or place orders.
