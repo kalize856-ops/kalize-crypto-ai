@@ -35,6 +35,7 @@ public class MainActivity extends Activity {
     private String selectedSymbol = "BTCUSDT";
     private boolean receiverRegistered = false;
     private String historyFilter = "ALL";
+    private int performanceRangeDays = 0;
 
     private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -138,6 +139,7 @@ public class MainActivity extends Activity {
         learningReportPanel = addPanel("AI MODEL PERFORMANCE REPORT", "Collecting learning statistics…");
         openTradesPanel = addPanel("OPEN SIMULATED POSITIONS", "No open positions.");
         performancePanel = addPanel("PAPER-TRADE PERFORMANCE", "Waiting for closed paper trades…");
+        addPerformanceRangeSelector();
         historyPanel = addPanel("PAPER-TRADE JOURNAL", "No paper trades recorded yet.");
         addHistoryFilterSelector();
 
@@ -194,7 +196,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.9 · Per-coin performance breakdown · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.10 · Time-filtered performance analytics · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -567,7 +569,38 @@ public class MainActivity extends Activity {
         content.addView(row);
     }
 
+    private void addPerformanceRangeSelector() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final int[] ranges = new int[]{7, 30, 0};
+        final String[] labels = new String[]{"7 DAYS", "30 DAYS", "ALL TIME"};
+        for (int i = 0; i < ranges.length; i++) {
+            final int range = ranges[i];
+            Button button = new Button(this);
+            button.setText(labels[i]);
+            button.setTextSize(10);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View view) {
+                    performanceRangeDays = range;
+                    if (performancePanel != null)
+                        performancePanel.setText(loadPerformanceReport(database.getReadableDatabase()));
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
+            params.setMargins(dp(2), dp(2), dp(2), dp(10));
+            row.addView(button, params);
+        }
+        content.addView(row);
+    }
+
     private String loadPerformanceReport(SQLiteDatabase db) {
+        long cutoff = performanceRangeDays > 0
+                ? System.currentTimeMillis() - performanceRangeDays * 86400000L : 0L;
+        String where = performanceRangeDays > 0
+                ? " WHERE status='CLOSED' AND closed_at>=?"
+                : " WHERE status='CLOSED'";
+        String[] args = performanceRangeDays > 0
+                ? new String[]{String.valueOf(cutoff)} : null;
         Cursor c = db.rawQuery(
                 "SELECT COUNT(*)," +
                 "COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END),0)," +
@@ -578,10 +611,11 @@ public class MainActivity extends Activity {
                 "COALESCE(MAX(realized_pnl),0),COALESCE(MIN(realized_pnl),0)," +
                 "COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN realized_pnl ELSE 0 END),0)," +
                 "COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN -realized_pnl ELSE 0 END),0) " +
-                "FROM paper_trades WHERE status='CLOSED'", null);
+                "FROM paper_trades" + where, args);
         try {
+            String period = performanceRangeDays == 0 ? "ALL-TIME" : "LAST " + performanceRangeDays + " DAYS";
             if (!c.moveToFirst() || c.getInt(0) == 0)
-                return "No closed paper trades yet. Performance statistics will appear after a simulated position is closed.\n\nThese figures describe the virtual account only.";
+                return period + " PERFORMANCE\\nNo closed paper trades in this period yet.\\n\\nThese figures describe the virtual account only.";
             int total = c.getInt(0);
             int wins = c.getInt(1);
             int losses = c.getInt(2);
@@ -597,38 +631,38 @@ public class MainActivity extends Activity {
                     ? String.format(Locale.US, "%.2f", grossProfit / grossLoss)
                     : (grossProfit > 0.0 ? "No losing trades" : "—");
             StringBuilder report = new StringBuilder();
-            report.append("Closed trades: ").append(total)
-                    .append("\nWinning trades: ").append(wins)
-                    .append("\nLosing trades: ").append(losses)
-                    .append("\nBreak-even trades: ").append(breakeven)
-                    .append("\nWin rate: ").append(String.format(Locale.US, "%.1f%%", winRate))
-                    .append("\nAverage winning trade: ").append(money(averageWin))
-                    .append("\nAverage losing trade: ").append(money(averageLoss))
-                    .append("\nBest closed trade: ").append(money(best))
-                    .append("\nWorst closed trade: ").append(money(worst))
-                    .append("\nGross simulated profit: ").append(money(grossProfit))
-                    .append("\nGross simulated loss: ").append(money(grossLoss))
-                    .append("\nProfit factor: ").append(profitFactor)
-                    .append("\n\nPER-COIN BREAKDOWN");
+            report.append(period).append(" PERFORMANCE")
+                    .append("\\nClosed trades: ").append(total)
+                    .append("\\nWinning trades: ").append(wins)
+                    .append("\\nLosing trades: ").append(losses)
+                    .append("\\nBreak-even trades: ").append(breakeven)
+                    .append("\\nWin rate: ").append(String.format(Locale.US, "%.1f%%", winRate))
+                    .append("\\nAverage winning trade: ").append(money(averageWin))
+                    .append("\\nAverage losing trade: ").append(money(averageLoss))
+                    .append("\\nBest closed trade: ").append(money(best))
+                    .append("\\nWorst closed trade: ").append(money(worst))
+                    .append("\\nGross simulated profit: ").append(money(grossProfit))
+                    .append("\\nGross simulated loss: ").append(money(grossLoss))
+                    .append("\\nProfit factor: ").append(profitFactor)
+                    .append("\\n\\nPER-COIN BREAKDOWN");
             Cursor bySymbol = db.rawQuery(
                     "SELECT symbol,COUNT(*)," +
                     "SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END)," +
                     "COALESCE(SUM(realized_pnl),0),COALESCE(AVG(realized_pnl),0) " +
-                    "FROM paper_trades WHERE status='CLOSED' GROUP BY symbol ORDER BY symbol ASC",
-                    null);
+                    "FROM paper_trades" + where + " GROUP BY symbol ORDER BY symbol ASC", args);
             try {
                 while (bySymbol.moveToNext()) {
                     int symbolTrades = bySymbol.getInt(1);
                     int symbolWins = bySymbol.getInt(2);
                     double symbolWinRate = symbolTrades > 0 ? symbolWins * 100.0 / symbolTrades : 0.0;
-                    report.append("\n\n").append(bySymbol.getString(0))
+                    report.append("\\n\\n").append(bySymbol.getString(0))
                             .append(" · ").append(symbolTrades).append(" closed")
-                            .append("\nWin rate: ").append(String.format(Locale.US, "%.1f%%", symbolWinRate))
-                            .append("\nNet simulated P/L: ").append(money(bySymbol.getDouble(3)))
-                            .append("\nAverage P/L per trade: ").append(money(bySymbol.getDouble(4)));
+                            .append("\\nWin rate: ").append(String.format(Locale.US, "%.1f%%", symbolWinRate))
+                            .append("\\nNet simulated P/L: ").append(money(bySymbol.getDouble(3)))
+                            .append("\\nAverage P/L per trade: ").append(money(bySymbol.getDouble(4)));
                 }
             } finally { bySymbol.close(); }
-            report.append("\n\nStatistics use all closed virtual trades and include recorded net P/L after simulated costs. They are historical summaries, not predictions.");
+            report.append("\\n\\nStatistics use closed virtual trades in the selected period and recorded net P/L after simulated costs. Historical summaries are not predictions.");
             return report.toString();
         } finally { c.close(); }
     }
