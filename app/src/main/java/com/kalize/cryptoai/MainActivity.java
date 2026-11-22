@@ -844,8 +844,8 @@ public class MainActivity extends Activity {
             int[] horizons = new int[]{15, 60, 1440};
             String[] labels = new String[]{"15-minute change", "1-hour change", "24-hour change"};
             for (int h = 0; h < horizons.length; h++) {
-                if (rows.size() <= horizons[h]) { report.append("\n").append(labels[h]).append(": Not enough data"); continue; }
-                double reference = rows.get(horizons[h])[3];
+                if (rows.size() < horizons[h]) { report.append("\n").append(labels[h]).append(": Not enough data"); continue; }
+                double reference = rows.get(horizons[h] - 1)[3];
                 double change = reference > 0.0 ? ((latest - reference) / reference) * 100.0 : 0.0;
                 report.append("\n").append(labels[h]).append(": ").append(change >= 0.0 ? "+" : "").append(String.format(Locale.US, "%.2f%%", change));
             }
