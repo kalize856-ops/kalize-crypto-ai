@@ -227,6 +227,23 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         finally { cursor.close(); }
     }
 
+    /** Returns a compact, read-only summary of the retained candle window. */
+    public String getCandleStorageSummary() {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*), MIN(open_time), MAX(open_time) FROM candles WHERE interval='1m'", null);
+        try {
+            if (!cursor.moveToFirst() || cursor.getLong(0) == 0L) return "Saved 1-minute candles: none yet";
+            long count = cursor.getLong(0);
+            long oldest = cursor.isNull(1) ? 0L : cursor.getLong(1);
+            long newest = cursor.isNull(2) ? 0L : cursor.getLong(2);
+            java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.US);
+            String first = oldest > 0L ? format.format(new java.util.Date(oldest)) : "Unknown";
+            String last = newest > 0L ? format.format(new java.util.Date(newest)) : "Unknown";
+            return "Saved 1-minute candles: " + count + "\nOldest saved candle: " + first +
+                    "\nNewest saved candle: " + last + "\nAutomatic cleanup keeps approximately 30 days.";
+        } finally { cursor.close(); }
+    }
+
     public String getSetting(String key, String defaultValue) {
         Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT setting_value FROM app_settings WHERE setting_key=?",
