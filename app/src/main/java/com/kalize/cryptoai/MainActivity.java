@@ -10,6 +10,7 @@ import android.content.IntentFilter;
 import android.graphics.Color;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.util.Locale;
@@ -93,7 +94,31 @@ public class MainActivity extends Activity {
         addPanel("RISK CONTROLS",
                 "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\nMaximum open positions: 3\nNo exchange order permissions");
 
-        addText("Build 0.1.4 · Android 4.4.4+ · WebSocket market data · Local SQLite",
+        addText("AUTOMATIC AI PAPER TRADING", 12, Color.rgb(22, 192, 140), true);
+        addText("Optional and OFF by default. When enabled, the AI may open and close virtual positions using completed 1-minute candles. No real funds or exchange orders are involved.",
+                13, Color.LTGRAY, false);
+        final AutoPaperTradingController autoTrader =
+                new AutoPaperTradingController(database);
+        final Button autoButton = new Button(this);
+        autoButton.setText(autoTrader.isEnabled()
+                ? "Turn automatic paper trading OFF"
+                : "Turn automatic paper trading ON");
+        autoButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                boolean enable = !autoTrader.isEnabled();
+                autoTrader.setEnabled(enable);
+                autoButton.setText(enable
+                        ? "Turn automatic paper trading OFF"
+                        : "Turn automatic paper trading ON");
+            }
+        });
+        LinearLayout.LayoutParams autoParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        autoParams.bottomMargin = dp(16);
+        content.addView(autoButton, autoParams);
+
+        addText("Build 0.1.5 · Android 4.4.4+ · WebSocket market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
     }
