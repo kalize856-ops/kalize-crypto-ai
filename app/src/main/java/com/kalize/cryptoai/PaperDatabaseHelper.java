@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 /** Small local store designed for Android 4.4+; simulation data only. */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 5;
+    private static final int DB_VERSION = 6;
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long CANDLE_WINDOW_MS = 30L * DAY_MS;
 
@@ -60,8 +60,11 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("ALTER TABLE paper_trades ADD COLUMN ai_probability REAL NOT NULL DEFAULT -1");
             db.execSQL("ALTER TABLE paper_trades ADD COLUMN ai_interval TEXT");
         }
-        if (oldVersion < 5) {
+        if (oldVersion < 5 && !hasColumn(db, "ai_models", "candle_samples")) {
             db.execSQL("ALTER TABLE ai_models ADD COLUMN candle_samples INTEGER NOT NULL DEFAULT 0");
+        }
+        if (oldVersion < 6 && !hasColumn(db, "ai_models", "last_candle_time")) {
+            db.execSQL("ALTER TABLE ai_models ADD COLUMN last_candle_time INTEGER NOT NULL DEFAULT 0");
         }
         // Existing virtual balances, candles and trades are preserved.
     }
@@ -90,7 +93,16 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 "model_key TEXT PRIMARY KEY, w_momentum REAL NOT NULL, " +
                 "w_trend REAL NOT NULL, w_range REAL NOT NULL, bias REAL NOT NULL, " +
                 "samples INTEGER NOT NULL DEFAULT 0, correct INTEGER NOT NULL DEFAULT 0, " +
-                "candle_samples INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL)");
+                "candle_samples INTEGER NOT NULL DEFAULT 0, last_candle_time INTEGER NOT NULL DEFAULT 0, " +
+                "updated_at INTEGER NOT NULL)");
+    }
+
+    private boolean hasColumn(SQLiteDatabase db, String table, String column) {
+        Cursor c = db.rawQuery("PRAGMA table_info(" + table + ")", null);
+        try {
+            while (c.moveToNext()) if (column.equals(c.getString(1))) return true;
+            return false;
+        } finally { c.close(); }
     }
 
     public double getCashBalance() {
