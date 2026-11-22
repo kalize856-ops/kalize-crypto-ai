@@ -12,6 +12,7 @@ public final class AutoPaperTradingController {
     private static final String SETTING = "auto_paper_trading";
     private static final double STOP_DISTANCE = 0.02;
     private static final double MIN_CONFIDENCE = 16.0;
+    private static final long REENTRY_COOLDOWN_MS = 5L * 60L * 1000L;
 
     private final PaperDatabaseHelper database;
     private final PaperTradingEngine trading;
@@ -62,6 +63,7 @@ public final class AutoPaperTradingController {
         for (long[] item : triggered) {
             double exitReference = Double.longBitsToDouble(item[1]);
             PaperTradingEngine.Result closed = trading.sell(item[0], exitReference);
+            if (closed.success) recordExit(symbol);
             if (stopReport.length() > 0) stopReport.append("\n");
             stopReport.append(closed.success ? "Stop-loss executed: " : "Stop-loss error: ")
                     .append(closed.message);
@@ -93,11 +95,17 @@ public final class AutoPaperTradingController {
         if (openId > 0) {
             if ("DOWNWARD BIAS".equals(assessment.signal)) {
                 PaperTradingEngine.Result closed = trading.sell(openId, marketPrice);
+                if (closed.success) recordExit(symbol);
                 return closed.message;
             }
             return "Holding simulated " + symbol + " position.";
         }
 
+        long cooldownRemaining = getCooldownRemaining(symbol);
+        if (cooldownRemaining > 0L) {
+            return "Entry paused briefly after the previous exit · " +
+                    Math.max(1L, (cooldownRemaining + 59999L) / 60000L) + " min remaining.";
+        }
         if (!"UPWARD BIAS".equals(assessment.signal) ||
                 assessment.confidence < MIN_CONFIDENCE) {
             return "No simulated entry: AI signal or confidence threshold not met.";
@@ -119,6 +127,18 @@ public final class AutoPaperTradingController {
         PaperTradingEngine.Result opened =
                 trading.buyWithAiSignal(symbol, interval, quantity, marketPrice, stop);
         return (stopReport.length() > 0 ? stopReport.toString() + "\n" : "") + opened.message;
+    }
+
+    private void recordExit(String symbol) {
+        database.putSetting("auto_last_exit_" + symbol, String.valueOf(System.currentTimeMillis()));
+    }
+
+    private long getCooldownRemaining(String symbol) {
+        String raw = database.getSetting("auto_last_exit_" + symbol, "0");
+        long lastExit;
+        try { lastExit = Long.parseLong(raw); }
+        catch (Exception ignored) { lastExit = 0L; }
+        return Math.max(0L, REENTRY_COOLDOWN_MS - (System.currentTimeMillis() - lastExit));
     }
 
     private boolean finitePositive(double value) {
