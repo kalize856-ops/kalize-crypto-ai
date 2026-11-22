@@ -194,7 +194,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.8 · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.9 · Per-coin performance breakdown · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -596,19 +596,40 @@ public class MainActivity extends Activity {
             String profitFactor = grossLoss > 0.0
                     ? String.format(Locale.US, "%.2f", grossProfit / grossLoss)
                     : (grossProfit > 0.0 ? "No losing trades" : "—");
-            return "Closed trades: " + total +
-                    "\nWinning trades: " + wins +
-                    "\nLosing trades: " + losses +
-                    "\nBreak-even trades: " + breakeven +
-                    "\nWin rate: " + String.format(Locale.US, "%.1f%%", winRate) +
-                    "\nAverage winning trade: " + money(averageWin) +
-                    "\nAverage losing trade: " + money(averageLoss) +
-                    "\nBest closed trade: " + money(best) +
-                    "\nWorst closed trade: " + money(worst) +
-                    "\nGross simulated profit: " + money(grossProfit) +
-                    "\nGross simulated loss: " + money(grossLoss) +
-                    "\nProfit factor: " + profitFactor +
-                    "\n\nStatistics use all closed virtual trades and include the recorded net P/L after simulated costs. They are historical summaries, not predictions.";
+            StringBuilder report = new StringBuilder();
+            report.append("Closed trades: ").append(total)
+                    .append("\nWinning trades: ").append(wins)
+                    .append("\nLosing trades: ").append(losses)
+                    .append("\nBreak-even trades: ").append(breakeven)
+                    .append("\nWin rate: ").append(String.format(Locale.US, "%.1f%%", winRate))
+                    .append("\nAverage winning trade: ").append(money(averageWin))
+                    .append("\nAverage losing trade: ").append(money(averageLoss))
+                    .append("\nBest closed trade: ").append(money(best))
+                    .append("\nWorst closed trade: ").append(money(worst))
+                    .append("\nGross simulated profit: ").append(money(grossProfit))
+                    .append("\nGross simulated loss: ").append(money(grossLoss))
+                    .append("\nProfit factor: ").append(profitFactor)
+                    .append("\n\nPER-COIN BREAKDOWN");
+            Cursor bySymbol = db.rawQuery(
+                    "SELECT symbol,COUNT(*)," +
+                    "SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END)," +
+                    "COALESCE(SUM(realized_pnl),0),COALESCE(AVG(realized_pnl),0) " +
+                    "FROM paper_trades WHERE status='CLOSED' GROUP BY symbol ORDER BY symbol ASC",
+                    null);
+            try {
+                while (bySymbol.moveToNext()) {
+                    int symbolTrades = bySymbol.getInt(1);
+                    int symbolWins = bySymbol.getInt(2);
+                    double symbolWinRate = symbolTrades > 0 ? symbolWins * 100.0 / symbolTrades : 0.0;
+                    report.append("\n\n").append(bySymbol.getString(0))
+                            .append(" · ").append(symbolTrades).append(" closed")
+                            .append("\nWin rate: ").append(String.format(Locale.US, "%.1f%%", symbolWinRate))
+                            .append("\nNet simulated P/L: ").append(money(bySymbol.getDouble(3)))
+                            .append("\nAverage P/L per trade: ").append(money(bySymbol.getDouble(4)));
+                }
+            } finally { bySymbol.close(); }
+            report.append("\n\nStatistics use all closed virtual trades and include recorded net P/L after simulated costs. They are historical summaries, not predictions.");
+            return report.toString();
         } finally { c.close(); }
     }
 
