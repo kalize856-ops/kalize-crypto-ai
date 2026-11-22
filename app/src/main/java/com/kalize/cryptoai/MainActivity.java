@@ -356,6 +356,10 @@ public class MainActivity extends Activity {
                     .append("\nWalk-forward directional accuracy: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.accuracy))
                     .append("\nSimple momentum baseline: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.baselineAccuracy))
                     .append("\nProbability Brier score (lower is better): ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.4f", v.brierScore))
+                    .append("\nBalanced accuracy: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.balancedAccuracy))
+                    .append("\nUpward precision / recall: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%% / %.1f%%", v.precision, v.recall))
+                    .append("\nDownward specificity: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.specificity))
+                    .append("\nConfusion counts (TP/TN/FP/FN): ").append(v.truePositive).append("/").append(v.trueNegative).append("/").append(v.falsePositive).append("/").append(v.falseNegative)
                     .append("\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
                     .append("\nAI paper-outcome accuracy: ")
                     .append(a.tradeSamples == 0 ? "Not available" :
