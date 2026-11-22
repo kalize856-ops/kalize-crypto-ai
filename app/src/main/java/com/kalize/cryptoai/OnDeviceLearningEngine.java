@@ -22,6 +22,65 @@ public final class OnDeviceLearningEngine {
             candleSamples=cs;tradeSamples=ts;tradeAccuracy=ta;
         }
     }
+    public static final class Validation {
+        public final int samples, correct, baselineCorrect;
+        public final double accuracy, baselineAccuracy, brierScore;
+        Validation(int n,int c,int b,double a,double ba,double bs) {
+            samples=n;correct=c;baselineCorrect=b;accuracy=a;
+            baselineAccuracy=ba;brierScore=bs;
+        }
+    }
+
+    /**
+     * Prequential walk-forward test: predict the next candle first, score it,
+     * then update a temporary model using that completed outcome. No future
+     * candle is used to make an earlier prediction. The live model is untouched.
+     */
+    public synchronized Validation validateWalkForward(String symbol,String interval) {
+        if(empty(symbol)||empty(interval)) return new Validation(0,0,0,0,0,0);
+        SQLiteDatabase db=helper.getReadableDatabase();
+        Cursor c=db.rawQuery("SELECT open_time,close,high,low,volume FROM candles " +
+                "WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 43200",
+                new String[]{symbol,interval});
+        int count=c.getCount();
+        long[] times=new long[count];
+        double[] close=new double[count],high=new double[count],low=new double[count],volume=new double[count];
+        int n=0;
+        try {
+            while(c.moveToNext()) {
+                int j=count-1-n;
+                times[j]=c.getLong(0);close[j]=c.getDouble(1);
+                high[j]=c.getDouble(2);low[j]=c.getDouble(3);volume[j]=c.getDouble(4);
+                n++;
+            }
+        } finally { c.close(); }
+        Model test=new Model();
+        int scored=0,correct=0,baselineCorrect=0;
+        double brier=0.0;
+        int up=0,down=0;
+        for(int i=6;i<n-1;i++) {
+            if(times[i+1]<=times[i]) continue;
+            double[] x=features(close,high,low,volume,i);
+            double p=probability(test,x);
+            int label=close[i+1]>close[i]?1:0;
+            int predicted=p>=0.5?1:0;
+            if(predicted==label) correct++;
+            if((close[i]>close[i-1]?1:0)==label) baselineCorrect++;
+            if(label==1) up++; else down++;
+            double error=label-p;
+            brier+=error*error;
+            double learningError=label-p;
+            test.momentum=clamp(test.momentum+LEARNING_RATE*learningError*x[0],-4,4);
+            test.trend=clamp(test.trend+LEARNING_RATE*learningError*x[1],-4,4);
+            test.range=clamp(test.range+LEARNING_RATE*learningError*x[2],-4,4);
+            test.bias=clamp(test.bias+LEARNING_RATE*learningError,-3,3);
+            scored++;
+        }
+        if(scored==0) return new Validation(0,0,0,0,0,0);
+        return new Validation(scored,correct,baselineCorrect,
+                100.0*correct/scored,100.0*baselineCorrect/scored,brier/scored);
+    }
+
     private static final class Model {
         double momentum=0.10,trend=0.10,range=0,bias=0;
         int samples=0,correct=0,candleSamples=0,tradeSamples=0,tradeCorrect=0;
