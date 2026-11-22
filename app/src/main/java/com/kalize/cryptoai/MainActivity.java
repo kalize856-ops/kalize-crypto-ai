@@ -19,7 +19,10 @@ public class MainActivity extends Activity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         database = new PaperDatabaseHelper(this);
+        tradingEngine = new PaperTradingEngine(database);
+        learningEngine = new OnDeviceLearningEngine(database);
         database.cleanExpiredCandles();
+        learningEngine.learn("BTCUSDT", "1d");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             getWindow().setStatusBarColor(Color.rgb(16, 24, 32));
@@ -48,12 +51,23 @@ public class MainActivity extends Activity {
         addPanel("PAPER TRADING",
                 "Closed trades    " + database.getClosedTradeCount() +
                 "\nReal-money orders    disabled");
+        OnDeviceLearningEngine.Assessment ai = learningEngine.assess("BTCUSDT", "1d");
+        addPanel("ON-DEVICE LEARNING ENGINE",
+                "Model status    " + ai.signal +
+                "
+Training examples    " + ai.samples +
+                "
+Historical accuracy    " + String.format(Locale.US, "%.1f%%", ai.accuracy) +
+                "
+Signal strength    " + String.format(Locale.US, "%.1f%%", ai.confidence) +
+                "
+Runs locally on this phone");
         addPanel("HISTORICAL DATA",
                 "Learning window: 30 days\nStored candles: " +
                 database.getStoredCandleCount() +
                 "\nExpired candles: automatically cleaned");
         addPanel("RISK CONTROLS",
-                "Simulation only\nFees and slippage: next implementation stage\nNo exchange order permissions");
+                "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\nMaximum open positions: 3\nNo exchange order permissions");
         addText("Build 0.1.2 · Android 4.4.4+ · Local SQLite storage",
                 11, Color.GRAY, false);
         setContentView(scroll);

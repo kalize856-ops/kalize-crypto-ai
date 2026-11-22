@@ -12,7 +12,7 @@ import android.database.sqlite.SQLiteOpenHelper;
  */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 2;
+    private static final int DB_VERSION = 3
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long CANDLE_WINDOW_MS = 30L * DAY_MS;
 
@@ -50,6 +50,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 "closed_at INTEGER," +
                 "stop_loss REAL NOT NULL DEFAULT 0)");
         db.execSQL("CREATE INDEX paper_trades_status_idx ON paper_trades(status)");
+        createLearningTable(db);
         db.execSQL("CREATE TABLE app_settings (" +
                 "setting_key TEXT PRIMARY KEY," +
                 "setting_value TEXT NOT NULL)");
@@ -70,7 +71,16 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE paper_trades ADD COLUMN stop_loss REAL NOT NULL DEFAULT 0");
         }
+        if (oldVersion < 3) createLearningTable(db);
         // Migrations preserve the virtual wallet, candle history and all trades.
+    }
+
+    private void createLearningTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS ai_models (" +
+                "model_key TEXT PRIMARY KEY, w_momentum REAL NOT NULL, " +
+                "w_trend REAL NOT NULL, w_range REAL NOT NULL, bias REAL NOT NULL, " +
+                "samples INTEGER NOT NULL DEFAULT 0, correct INTEGER NOT NULL DEFAULT 0, " +
+                "updated_at INTEGER NOT NULL)");
     }
 
     public double getCashBalance() {
