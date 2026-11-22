@@ -251,15 +251,16 @@ public class MainActivity extends Activity {
             double[] l = new double[plotted], close = new double[plotted];
             try {
                 int sourceIndex = 0;
-                int targetIndex = plotted - 1;
-                int stride = Math.max(1, (int)Math.ceil((double)count / Math.max(1, plotted)));
+                int lastBucket = -1;
                 while (candles.moveToNext()) {
-                    if (sourceIndex % stride == 0 && targetIndex >= 0) {
+                    int bucket = count == 0 ? 0 : (sourceIndex * plotted) / count;
+                    if (bucket != lastBucket && bucket < plotted) {
+                        int targetIndex = plotted - 1 - bucket;
                         o[targetIndex] = candles.getDouble(0);
                         h[targetIndex] = candles.getDouble(1);
                         l[targetIndex] = candles.getDouble(2);
                         close[targetIndex] = candles.getDouble(3);
-                        targetIndex--;
+                        lastBucket = bucket;
                     }
                     sourceIndex++;
                 }
