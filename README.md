@@ -124,3 +124,9 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Reports recent gap events, estimated missing one-minute candles, and approximate age of the latest detected gap.
 - Keeps the scan local and read-only; it does not create synthetic candles or treat data gaps as trading signals.
 - Older-device impact is bounded to at most 61 timestamp rows per coin during a health refresh.
+
+
+### Build 0.5.17 — candle-history coverage percentage
+- Adds an observed one-minute candle coverage estimate beside each symbol's recent gap scan.
+- Coverage is calculated from observed candle timestamps and estimated missing-minute intervals within the bounded scan.
+- The percentage describes historical data continuity only; it is not a forecast or trade signal.
