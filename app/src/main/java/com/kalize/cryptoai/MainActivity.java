@@ -109,12 +109,12 @@ public class MainActivity extends Activity {
 
         addText("KALIZE CRYPTO AI", 24, Color.WHITE, true);
         addPanel("QUICK GUIDE",
-                "Live prices: Real coin prices from the market.\\n" +
-                "Practice money: The balance is pretend money, not cash.\\n" +
-                "AI bot: It makes practice trades automatically.\\n" +
-                "Profit or loss: Shows whether a practice trade gained or lost value.\\n" +
-                "Balance runs out: The bot stops opening trades when its practice money is gone.\\n" +
-                "Start over: Resets the practice account to its starting balance.\\n\\n" +
+                "Live prices: Real coin prices from the market.\n" +
+                "Practice money: The balance is pretend money, not cash.\n" +
+                "AI bot: It makes practice trades automatically.\n" +
+                "Profit or loss: Shows whether a practice trade gained or lost value.\n" +
+                "Balance runs out: The bot stops opening trades when its practice money is gone.\n" +
+                "Start over: Resets the practice account to its starting balance.\n\n" +
                 "Nothing in this app places real-money trades.");
 
         addText("PRACTICE TRADING · VIRTUAL MONEY ONLY", 12, Color.rgb(22, 192, 140), true);
@@ -695,11 +695,11 @@ public class MainActivity extends Activity {
 
     /** Plain-language explanation of the simulator's built-in risk limits. */
     private String loadRiskExplanation() {
-        return "1% risk per practice trade: the planned loss at the stop is limited to about 1% of virtual account value. A fast price move can still make the result different.\\n\\n" +
-                "2% daily loss pause: when closed practice losses reach 2% of the account's starting balance for the day, the bot stops opening new positions until the next day.\\n\\n" +
-                "3 open positions maximum: prevents the practice bot from opening too many positions at once.\\n\\n" +
-                "25% position-size limit: one position cannot use more than a quarter of the virtual account's estimated value.\\n\\n" +
-                "Fees and slippage: simulated costs are subtracted, so results are not based on perfect trades.\\n\\n" +
+        return "1% risk per practice trade: the planned loss at the stop is limited to about 1% of virtual account value. A fast price move can still make the result different.\n\n" +
+                "2% daily loss pause: when closed practice losses reach 2% of the account's starting balance for the day, the bot stops opening new positions until the next day.\n\n" +
+                "3 open positions maximum: prevents the practice bot from opening too many positions at once.\n\n" +
+                "25% position-size limit: one position cannot use more than a quarter of the virtual account's estimated value.\n\n" +
+                "Fees and slippage: simulated costs are subtracted, so results are not based on perfect trades.\n\n" +
                 "These limits reduce simulated exposure; they do not guarantee a profit or prevent every loss.";
     }
 
@@ -713,12 +713,12 @@ public class MainActivity extends Activity {
                 new String[]{String.valueOf(dayStart)});
         try {
             if (!c.moveToFirst() || c.getInt(0) == 0)
-                return "No finished practice trades today.\\nToday's closed-trade result: $0.00\\nThe report updates when a practice trade finishes.";
+                return "No finished practice trades today.\nToday's closed-trade result: $0.00\nThe report updates when a practice trade finishes.";
             return "Finished practice trades: " + c.getInt(0) +
-                    "\\nProfitable: " + c.getInt(1) +
-                    "\\nLost value: " + c.getInt(2) +
-                    "\\nToday's closed-trade result: " + money(c.getDouble(3)) +
-                    "\\nDaily loss pause: " + (tradingEngine.isDailyLossLimitReached() ? "Reached · new entries paused" : "Not reached");
+                    "\nProfitable: " + c.getInt(1) +
+                    "\nLost value: " + c.getInt(2) +
+                    "\nToday's closed-trade result: " + money(c.getDouble(3)) +
+                    "\nDaily loss pause: " + (tradingEngine.isDailyLossLimitReached() ? "Reached · new entries paused" : "Not reached");
         } finally { c.close(); }
     }
 
@@ -732,16 +732,16 @@ public class MainActivity extends Activity {
         int count = 0;
         try {
             while (c.moveToNext()) {
-                if (count++ > 0) out.append("\\n\\n");
+                if (count++ > 0) out.append("\n\n");
                 out.append(format.format(new java.util.Date(c.getLong(0))))
-                        .append("\\nCash before restart: ").append(money(c.getDouble(1)))
-                        .append("\\nFinished trades: ").append(c.getInt(2))
-                        .append("\\nSession result: ").append(money(c.getDouble(3)));
+                        .append("\nCash before restart: ").append(money(c.getDouble(1)))
+                        .append("\nFinished trades: ").append(c.getInt(2))
+                        .append("\nSession result: ").append(money(c.getDouble(3)));
             }
         } finally { c.close(); }
         if (count == 0) return "No account restarts recorded yet. Starting over will save a summary of the previous practice account here.";
-        return "Latest " + count + " account restart" + (count == 1 ? "" : "s") + "\\n\\n" + out.toString() +
-                "\\n\\nOnly the 10 most recent restart summaries are shown.";
+        return "Latest " + count + " account restart" + (count == 1 ? "" : "s") + "\n\n" + out.toString() +
+                "\n\nOnly the 10 most recent restart summaries are shown.";
     }
 
     private String formatDuration(long durationMs) {
