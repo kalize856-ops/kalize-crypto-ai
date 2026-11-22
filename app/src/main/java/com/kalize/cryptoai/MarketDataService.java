@@ -208,7 +208,7 @@ public final class MarketDataService extends Service {
             // The just-closed candle supplies the next label for the prior candle.
             learner.learn(symbol, "1m");
             String automation = autoTrader.onCompletedCandle(symbol, "1m", close);
-            broadcast(symbol + " · 1m candle saved\\n" + automation);
+            broadcast(symbol + " · 1m candle saved\n" + automation);
             updateNotification("Live · " + symbol + " candle saved");
         } catch (Exception ignored) {
             // Malformed or unexpected packets are discarded; the stream stays alive.
