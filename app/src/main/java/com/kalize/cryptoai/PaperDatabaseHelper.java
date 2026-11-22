@@ -86,7 +86,8 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("UPDATE ai_models SET samples=0, correct=0, candle_samples=0, " +
                     "trade_samples=0, trade_correct=0");
         }
-        if (oldVersion < 9) createResetHistoryTable(db);\n        // Existing virtual balances, candles and trades are preserved.
+        if (oldVersion < 9) createResetHistoryTable(db);
+        // Existing virtual balances, candles and trades are preserved.
     }
 
     private void createResetHistoryTable(SQLiteDatabase db) {
