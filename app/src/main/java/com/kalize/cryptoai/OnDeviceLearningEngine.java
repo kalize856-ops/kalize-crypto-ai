@@ -23,11 +23,16 @@ public final class OnDeviceLearningEngine {
         }
     }
     public static final class Validation {
-        public final int samples, correct, baselineCorrect;
-        public final double accuracy, baselineAccuracy, brierScore;
-        Validation(int n,int c,int b,double a,double ba,double bs) {
+        public final int samples, correct, baselineCorrect, truePositive, trueNegative, falsePositive, falseNegative;
+        public final double accuracy, baselineAccuracy, brierScore, precision, recall, specificity, balancedAccuracy;
+        Validation(int n,int c,int b,double a,double ba,double bs,int tp,int tn,int fp,int fn) {
             samples=n;correct=c;baselineCorrect=b;accuracy=a;
-            baselineAccuracy=ba;brierScore=bs;
+            baselineAccuracy=ba;brierScore=bs;truePositive=tp;trueNegative=tn;
+            falsePositive=fp;falseNegative=fn;
+            precision=(tp+fp)==0?0:100.0*tp/(tp+fp);
+            recall=(tp+fn)==0?0:100.0*tp/(tp+fn);
+            specificity=(tn+fp)==0?0:100.0*tn/(tn+fp);
+            balancedAccuracy=(recall+specificity)/2.0;
         }
     }
 
@@ -37,7 +42,7 @@ public final class OnDeviceLearningEngine {
      * candle is used to make an earlier prediction. The live model is untouched.
      */
     public synchronized Validation validateWalkForward(String symbol,String interval) {
-        if(empty(symbol)||empty(interval)) return new Validation(0,0,0,0,0,0);
+        if(empty(symbol)||empty(interval)) return new Validation(0,0,0,0,0,0,0,0,0,0);
         SQLiteDatabase db=helper.getReadableDatabase();
         Cursor c=db.rawQuery("SELECT open_time,close,high,low,volume FROM candles " +
                 "WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 10080",
@@ -56,6 +61,7 @@ public final class OnDeviceLearningEngine {
         } finally { c.close(); }
         Model test=new Model();
         int scored=0,correct=0,baselineCorrect=0;
+        int tp=0,tn=0,fp=0,fn=0;
         double brier=0.0;
         for(int i=6;i<n-1;i++) {
             if(times[i+1]<=times[i]) continue;
@@ -64,6 +70,10 @@ public final class OnDeviceLearningEngine {
             int label=close[i+1]>close[i]?1:0;
             int predicted=p>=0.5?1:0;
             if(predicted==label) correct++;
+            if(predicted==1&&label==1) tp++;
+            else if(predicted==0&&label==0) tn++;
+            else if(predicted==1) fp++;
+            else fn++;
             if((close[i]>close[i-1]?1:0)==label) baselineCorrect++;
             double error=label-p;
             brier+=error*error;
@@ -76,7 +86,7 @@ public final class OnDeviceLearningEngine {
         }
         if(scored==0) return new Validation(0,0,0,0,0,0);
         return new Validation(scored,correct,baselineCorrect,
-                100.0*correct/scored,100.0*baselineCorrect/scored,brier/scored);
+                100.0*correct/scored,100.0*baselineCorrect/scored,brier/scored,tp,tn,fp,fn);
     }
 
     private static final class Model {
