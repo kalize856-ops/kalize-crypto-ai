@@ -78,3 +78,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 
 - Extends the performance report with one section per traded symbol, showing closed-trade count, win rate, net simulated P/L, and average P/L per trade.
 - Uses only the local virtual trade ledger and recorded net realized P/L after simulated costs. Results are descriptive history, not predictions or trading recommendations.
+
+
+## Build 0.5.10 — time-filtered performance analytics
+
+- Adds performance-report filters for the last 7 days, last 30 days, and all-time history.
+- The overall statistics and per-coin breakdown use the same selected period, based on each closed virtual trade's close timestamp.
+- The report refreshes locally when a period is selected; no network request or real-money trading is involved.
