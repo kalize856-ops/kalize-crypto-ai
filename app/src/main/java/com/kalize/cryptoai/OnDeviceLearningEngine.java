@@ -40,7 +40,7 @@ public final class OnDeviceLearningEngine {
         if(empty(symbol)||empty(interval)) return new Validation(0,0,0,0,0,0);
         SQLiteDatabase db=helper.getReadableDatabase();
         Cursor c=db.rawQuery("SELECT open_time,close,high,low,volume FROM candles " +
-                "WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 43200",
+                "WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 10080",
                 new String[]{symbol,interval});
         int count=c.getCount();
         long[] times=new long[count];
@@ -57,7 +57,6 @@ public final class OnDeviceLearningEngine {
         Model test=new Model();
         int scored=0,correct=0,baselineCorrect=0;
         double brier=0.0;
-        int up=0,down=0;
         for(int i=6;i<n-1;i++) {
             if(times[i+1]<=times[i]) continue;
             double[] x=features(close,high,low,volume,i);
@@ -66,7 +65,6 @@ public final class OnDeviceLearningEngine {
             int predicted=p>=0.5?1:0;
             if(predicted==label) correct++;
             if((close[i]>close[i-1]?1:0)==label) baselineCorrect++;
-            if(label==1) up++; else down++;
             double error=label-p;
             brier+=error*error;
             double learningError=label-p;
