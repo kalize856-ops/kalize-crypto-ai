@@ -26,12 +26,14 @@ import java.util.concurrent.TimeUnit;
 public final class MarketDataService extends Service {
     public static final String ACTION_STATUS = "com.kalize.cryptoai.MARKET_STATUS";
     public static final String EXTRA_STATUS = "status";
+    public static final String EXTRA_QUOTES = "quotes";
     public static final String ACTION_STOP = "com.kalize.cryptoai.STOP_MARKET_STREAM";
     private static final String CHANNEL_ID = "kalize_market_stream";
     private static final int NOTIFICATION_ID = 4101;
     private static final String STREAM_URL =
             "wss://stream.binance.com:9443/stream?streams=" +
-            "btcusdt@kline_1m/ethusdt@kline_1m/solusdt@kline_1m";
+            "btcusdt@kline_1m/ethusdt@kline_1m/solusdt@kline_1m/" +
+            "btcusdt@ticker/ethusdt@ticker/solusdt@ticker";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private OkHttpClient client;
@@ -191,7 +193,19 @@ public final class MarketDataService extends Service {
         try {
             JSONObject root = new JSONObject(raw);
             JSONObject data = root.optJSONObject("data");
-            if (data == null || !"kline".equals(data.optString("e"))) return;
+            if (data == null) return;
+            String event = data.optString("e");
+            if ("24hrTicker".equals(event)) {
+                String symbol = data.optString("s");
+                double last = number(data.optString("c"));
+                double change = number(data.optString("P"));
+                double high = number(data.optString("h"));
+                double low = number(data.optString("l"));
+                double quoteVolume = number(data.optString("q"));
+                if (last > 0 && !Double.isNaN(change)) broadcastQuote(symbol, last, change, high, low, quoteVolume);
+                return;
+            }
+            if (!"kline".equals(event)) return;
             JSONObject k = data.optJSONObject("k");
             if (k == null || !k.optBoolean("x", false)) return; // Ignore unfinished candles.
 
@@ -233,6 +247,12 @@ public final class MarketDataService extends Service {
         Intent update = new Intent(ACTION_STATUS);
         update.setPackage(getPackageName());
         update.putExtra(EXTRA_STATUS, status);
+        sendBroadcast(update);
+    }
+    private void broadcastQuote(String symbol, double last, double change, double high, double low, double quoteVolume) {
+        Intent update = new Intent(ACTION_STATUS);
+        update.setPackage(getPackageName());
+        update.putExtra(EXTRA_QUOTES, symbol + "|" + last + "|" + change + "|" + high + "|" + low + "|" + quoteVolume);
         sendBroadcast(update);
     }
 
