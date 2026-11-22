@@ -891,6 +891,7 @@ public class MainActivity extends Activity {
             }
         }
         out.append("\n\nIf prices are delayed, the AI may wait before making a new practice trade.");
+        out.append("\n\n").append(database.getCandleStorageSummary());
         return out.toString();
     }
 
