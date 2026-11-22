@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, decisionJournalPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
+    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, decisionJournalPanel, learningReportPanel, evolutionPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
     private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity, profitBubbleTrades, profitBubbleLatest;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -189,6 +189,7 @@ public class MainActivity extends Activity {
         modelPanel = addPanel("WHAT THE AI THINKS", "Loading local model…");
         decisionJournalPanel = addPanel("RECENT AI DECISIONS", "Waiting for the first practice decision…");
         learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
+        evolutionPanel = addPanel("AI EVOLUTION MODE", "Evaluating model quality and safe-improvement readiness…");
         openTradesPanel = addPanel("TRADES THE AI IS WATCHING", "No open positions.");
         performancePanel = addPanel("TRADE RESULTS", "Waiting for closed paper trades…");
         addPerformanceRangeSelector();
@@ -529,6 +530,7 @@ public class MainActivity extends Activity {
         modelPanel.setText(loadModels());
         if (decisionJournalPanel != null) decisionJournalPanel.setText(loadDecisionJournal(db));
         if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
+        if (evolutionPanel != null) evolutionPanel.setText(AiEvolutionEngine.buildReport(learningEngine));
     }
 
 
