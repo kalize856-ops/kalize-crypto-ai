@@ -80,6 +80,10 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 db.execSQL("ALTER TABLE ai_models ADD COLUMN trade_samples INTEGER NOT NULL DEFAULT 0");
             if (!hasColumn(db, "ai_models", "trade_correct"))
                 db.execSQL("ALTER TABLE ai_models ADD COLUMN trade_correct INTEGER NOT NULL DEFAULT 0");
+            // Old versions mixed candle and paper-trade correctness counters. Reset only
+            // report counters; learned weights and the last processed candle are preserved.
+            db.execSQL("UPDATE ai_models SET samples=0, correct=0, candle_samples=0, " +
+                    "trade_samples=0, trade_correct=0");
         }
         // Existing virtual balances, candles and trades are preserved.
     }
