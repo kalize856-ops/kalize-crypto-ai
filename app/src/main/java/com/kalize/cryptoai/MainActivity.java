@@ -3,6 +3,10 @@ package com.kalize.cryptoai;
 import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -10,12 +14,24 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import java.util.Locale;
 
-/** Lightweight local paper-trading dashboard; compatible with Android API 19+. */
+/** Lightweight paper-trading dashboard; compatible with Android API 19+. */
 public class MainActivity extends Activity {
     private LinearLayout content;
     private PaperDatabaseHelper database;
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
+    private TextView marketStatus;
+    private boolean receiverRegistered = false;
+
+    private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (marketStatus != null && intent != null) {
+                String status = intent.getStringExtra(MarketDataService.EXTRA_STATUS);
+                marketStatus.setText((status == null ? "Waiting for market feed" : status) +
+                        "\nCompleted 1m candles stored: " + database.getStoredCandleCount());
+            }
+        }
+    };
 
     @Override
     public void onCreate(Bundle state) {
@@ -24,7 +40,8 @@ public class MainActivity extends Activity {
         tradingEngine = new PaperTradingEngine(database);
         learningEngine = new OnDeviceLearningEngine(database);
         database.cleanExpiredCandles();
-        learningEngine.learn("BTCUSDT", "1d");
+        learningEngine.learn("BTCUSDT", "1m");
+        MarketStreamStarter.start(this);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             getWindow().setStatusBarColor(Color.rgb(16, 24, 32));
@@ -49,8 +66,10 @@ public class MainActivity extends Activity {
                 12, Color.LTGRAY, false);
         addSpace(20);
 
-        addPanel("MARKET WATCH",
-                "Live market connection: not configured yet\nBTC / USD    —\nETH / USD    —\nSOL / USD    —");
+        marketStatus = addPanel("LIVE MARKET WATCH",
+                "Starting persistent WebSocket connection…\n" +
+                "BTC / USDT    waiting\nETH / USDT    waiting\nSOL / USDT    waiting\n" +
+                "Candle interval: 1 minute");
 
         addPanel("PAPER TRADING",
                 "Closed trades    " + database.getClosedTradeCount() +
@@ -58,13 +77,13 @@ public class MainActivity extends Activity {
                 "\nOpen entry value    " + String.format(Locale.US, "$%.2f", tradingEngine.getOpenEntryValue()) +
                 "\nReal-money orders    disabled");
 
-        OnDeviceLearningEngine.Assessment ai = learningEngine.assess("BTCUSDT", "1d");
+        OnDeviceLearningEngine.Assessment ai = learningEngine.assess("BTCUSDT", "1m");
         addPanel("ON-DEVICE LEARNING ENGINE",
                 "Model status    " + ai.signal +
                 "\nTraining examples    " + ai.samples +
                 "\nHistorical accuracy    " + String.format(Locale.US, "%.1f%%", ai.accuracy) +
                 "\nSignal strength    " + String.format(Locale.US, "%.1f%%", ai.confidence) +
-                "\nRuns locally on this phone");
+                "\nTraining interval    1 minute\nRuns locally on this phone");
 
         addPanel("HISTORICAL DATA",
                 "Learning window: 30 days\nStored candles: " +
@@ -74,18 +93,38 @@ public class MainActivity extends Activity {
         addPanel("RISK CONTROLS",
                 "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\nMaximum open positions: 3\nNo exchange order permissions");
 
-        addText("Build 0.1.3 · Android 4.4.4+ · Local SQLite storage",
+        addText("Build 0.1.4 · Android 4.4.4+ · WebSocket market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
     }
 
-    @Override
-    protected void onDestroy() {
+    @Override protected void onResume() {
+        super.onResume();
+        if (!receiverRegistered) {
+            IntentFilter filter = new IntentFilter(MarketDataService.ACTION_STATUS);
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(marketReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(marketReceiver, filter);
+            }
+            receiverRegistered = true;
+        }
+    }
+
+    @Override protected void onPause() {
+        if (receiverRegistered) {
+            unregisterReceiver(marketReceiver);
+            receiverRegistered = false;
+        }
+        super.onPause();
+    }
+
+    @Override protected void onDestroy() {
         if (database != null) database.closeStore();
         super.onDestroy();
     }
 
-    private void addPanel(String title, String body) {
+    private TextView addPanel(String title, String body) {
         TextView heading = new TextView(this);
         heading.setText(title);
         heading.setTextColor(Color.rgb(22, 192, 140));
@@ -106,6 +145,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         params.bottomMargin = dp(14);
         content.addView(details, params);
+        return details;
     }
 
     private void addText(String value, int size, int color, boolean bold) {
