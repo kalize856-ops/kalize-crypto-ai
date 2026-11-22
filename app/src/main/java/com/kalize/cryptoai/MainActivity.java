@@ -32,7 +32,6 @@ public class MainActivity extends Activity {
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
     private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
-    private Button autoButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
@@ -161,8 +160,8 @@ public class MainActivity extends Activity {
                 "Maximum open positions: 3\nMaximum position size: 25% of virtual equity\n" +
                 "Fees and slippage are simulated\nReal-money orders: disabled");
 
-        addText("AUTOMATIC AI PAPER TRADING", 12, Color.rgb(22, 192, 140), true);
-        addText("Optional and OFF by default. The model can open or close virtual positions using completed 1-minute candles. No real funds or exchange orders are involved.",
+        addText("AUTONOMOUS AI PAPER TRADING", 12, Color.rgb(22, 192, 140), true);
+        addText("Always-on automatic simulation. The AI decides when to enter and exit virtual positions from completed market candles. Manual trading controls are not available. Real funds and exchange orders are disabled.",
                 13, Color.LTGRAY, false);
         Button resetSimulation = new Button(this);
         resetSimulation.setText("Reset virtual account · restore $100");
@@ -176,26 +175,12 @@ public class MainActivity extends Activity {
                             @Override public void onClick(android.content.DialogInterface dialog, int which) {
                                 database.resetPaperSimulation();
                                 refreshDashboard();
-                                updateAutoButton();
                             }
                         }).show();
             }
         });
         content.addView(resetSimulation, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        autoButton = new Button(this);
-        updateAutoButton();
-        autoButton.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View view) {
-                autoTrader.setEnabled(!autoTrader.isEnabled());
-                updateAutoButton();
-            }
-        });
-        LinearLayout.LayoutParams autoParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        autoParams.bottomMargin = dp(12);
-        content.addView(autoButton, autoParams);
 
         Button refresh = new Button(this);
         refresh.setText("Refresh dashboard");
@@ -308,7 +293,6 @@ public class MainActivity extends Activity {
         if (performancePanel != null) performancePanel.setText(loadPerformanceReport(db));
         modelPanel.setText(loadModels());
         if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
-        if (autoButton != null) updateAutoButton();
     }
 
 
@@ -1009,16 +993,6 @@ public class MainActivity extends Activity {
         Cursor c = db.rawQuery(sql, null);
         try { return c.moveToFirst() ? c.getDouble(0) : 0.0; }
         finally { c.close(); }
-    }
-
-    private void updateAutoButton() {
-        if (autoButton == null || autoTrader == null) return;
-        boolean depleted = database.isVirtualCashDepleted();
-        autoButton.setEnabled(!depleted || autoTrader.isEnabled());
-        autoButton.setText(depleted ? "Virtual cash depleted · reset to restart" :
-                (autoTrader.isEnabled()
-                ? "Turn automatic paper trading OFF"
-                : "Turn automatic paper trading ON"));
     }
 
     private String money(double value) {
