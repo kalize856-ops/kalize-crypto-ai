@@ -50,3 +50,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Monitoring continues even when automatic AI paper trading is switched off.
 - If the candle low crosses a stop, the simulator closes the virtual position. If the candle closes below the stop, the close is modeled at the worse candle-close reference, with simulated slippage and fees.
 - This uses completed candle OHLC data; it is an educational approximation and cannot reproduce every intraminute execution detail.
+
+
+## Portfolio drawdown tracking (0.5.6)
+- The dashboard records the highest observed total virtual equity (high-water mark) in local settings.
+- It displays the current dollar drawdown and percentage below that peak, including unrealized position value marked from the latest stored candle.
+- The high-water mark survives app restarts and resets to $100 only when the user explicitly resets the virtual account.
+- This is a historical simulator metric, not a forecast or a measure of real funds.
