@@ -43,3 +43,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - When virtual cash reaches zero, automatic paper trading is disabled and new positions are blocked.
 - The dashboard provides an explicit **Reset virtual account** action. It warns that resetting clears simulated positions and trade history and restores the wallet to $100; market candles and AI learning data are preserved.
 - Educational simulation only; no real funds, exchange accounts or live orders.
+
+
+## Automatic stop-loss monitoring (0.5.5)
+- Every completed 1-minute candle checks stop-loss levels for all open simulated positions, including manually opened positions.
+- Monitoring continues even when automatic AI paper trading is switched off.
+- If the candle low crosses a stop, the simulator closes the virtual position. If the candle closes below the stop, the close is modeled at the worse candle-close reference, with simulated slippage and fees.
+- This uses completed candle OHLC data; it is an educational approximation and cannot reproduce every intraminute execution detail.
