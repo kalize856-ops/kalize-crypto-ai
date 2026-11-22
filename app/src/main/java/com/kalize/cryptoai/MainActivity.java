@@ -108,19 +108,19 @@ public class MainActivity extends Activity {
         scroll.addView(dashboardRoot);
 
         addText("KALIZE CRYPTO AI", 24, Color.WHITE, true);
-        addText("LITE  •  PAPER TRADING DASHBOARD", 12, Color.rgb(22, 192, 140), true);
+        addText("PRACTICE TRADING · VIRTUAL MONEY ONLY", 12, Color.rgb(22, 192, 140), true);
         addSpace(18);
 
-        portfolioPanel = addPanel("VIRTUAL PORTFOLIO", "Loading portfolio…");
-        marketStatus = addPanel("LIVE MARKET WATCH",
+        portfolioPanel = addPanel("YOUR VIRTUAL MONEY", "Loading your balance…");
+        marketStatus = addPanel("MARKET CONNECTION",
                 "Starting persistent WebSocket connection…\nBTC / USDT    waiting\n" +
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
-        marketQuotes = addPanel("LIVE QUOTES · 24-HOUR SNAPSHOT",
-                "Waiting for live ticker updates…\nLast price, daily change, high, low and quote volume.");
-        marketHealthPanel = addPanel("MARKET DATA HEALTH", loadMarketHealth());
-        marketConditionPanel = addPanel("RECENT MARKET CONDITIONS · DESCRIPTIVE", loadMarketConditions());
-        addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
-        addText("Choose a pair, candle interval and history range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
+        marketQuotes = addPanel("COIN PRICES",
+                "Waiting for live coin prices…");
+        marketHealthPanel = addPanel("MARKET DATA STATUS", loadMarketHealth());
+        marketConditionPanel = addPanel("HOW THE MARKET HAS BEEN MOVING", loadMarketConditions());
+        addText("PRICE CHART", 12, Color.rgb(22, 192, 140), true);
+        addText("Choose a coin and time range. Drag the chart to look back at prices.", 12, Color.LTGRAY, false);
         addPairSelector();
         addIntervalSelector();
         addRangeSelector();
@@ -130,8 +130,8 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(220)));
         addSpace(14);
 
-        addText("SIMULATED PERFORMANCE", 12, Color.rgb(22, 192, 140), true);
-        addText("Cumulative realized results from closed paper trades; not a return forecast.", 12, Color.LTGRAY, false);
+        addText("VIRTUAL ACCOUNT HISTORY", 12, Color.rgb(22, 192, 140), true);
+        addText("See how your practice balance has changed. Past results do not predict future results.", 12, Color.LTGRAY, false);
         equityChart = new SimpleLineChartView(this);
         equityChart.setBackgroundColor(Color.rgb(27, 39, 54));
         content.addView(equityChart, new LinearLayout.LayoutParams(
@@ -140,38 +140,38 @@ public class MainActivity extends Activity {
 
         if (wideDashboard) {
             content = (LinearLayout) dashboardRoot.getChildAt(1);
-            addText("AI & PAPER-TRADING CONTROLS", 12, Color.rgb(22, 192, 140), true);
+            addText("YOUR AI PRACTICE BOT", 12, Color.rgb(22, 192, 140), true);
             addSpace(8);
         }
 
-        modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");
-        learningReportPanel = addPanel("AI MODEL PERFORMANCE REPORT", "Collecting learning statistics…");
-        openTradesPanel = addPanel("OPEN SIMULATED POSITIONS", "No open positions.");
-        performancePanel = addPanel("PAPER-TRADE PERFORMANCE", "Waiting for closed paper trades…");
+        modelPanel = addPanel("WHAT THE AI THINKS", "Loading local model…");
+        learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
+        openTradesPanel = addPanel("TRADES THE AI IS WATCHING", "No open positions.");
+        performancePanel = addPanel("TRADE RESULTS", "Waiting for closed paper trades…");
         addPerformanceRangeSelector();
-        historyPanel = addPanel("PAPER-TRADE JOURNAL", "No paper trades recorded yet.");
+        historyPanel = addPanel("PAST TRADES", "No paper trades recorded yet.");
         addHistoryFilterSelector();
 
-        addPanel("HISTORICAL DATA",
+        addPanel("SAVED MARKET HISTORY",
                 "Learning window: 30 days\nStored candles: " + database.getStoredCandleCount() +
                 "\nExpired candles: automatically cleaned");
-        addPanel("RISK CONTROLS",
+        addPanel("SAFETY LIMITS",
                 "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\n" +
                 "Maximum open positions: 3\nMaximum position size: 25% of virtual equity\n" +
                 "Fees and slippage are simulated\nReal-money orders: disabled");
 
-        addText("AUTONOMOUS AI PAPER TRADING", 12, Color.rgb(22, 192, 140), true);
-        addText("Always-on automatic simulation. The AI decides when to enter and exit virtual positions from completed market candles. Manual trading controls are not available. Real funds and exchange orders are disabled.",
+        addText("AUTOMATIC PRACTICE MODE", 12, Color.rgb(22, 192, 140), true);
+        addText("The bot makes practice trades by itself using live coin prices. You cannot place trades manually. It never uses real money or places real exchange orders.",
                 13, Color.LTGRAY, false);
         Button resetSimulation = new Button(this);
-        resetSimulation.setText("Reset virtual account · restore $100");
+        resetSimulation.setText("Start over · reset practice money to $100");
         resetSimulation.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) {
                 new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Reset paper simulation?")
-                        .setMessage("This clears all simulated positions and trade history and restores the virtual wallet to $100. Market candles and AI learning data will be kept. This cannot be undone.")
+                        .setTitle("Start the practice account over?")
+                        .setMessage("This clears your practice trades and restores the virtual balance to $100. Saved market prices and AI learning progress will stay. This cannot be undone.")
                         .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Reset simulation", new android.content.DialogInterface.OnClickListener() {
+                        .setPositiveButton("Start over", new android.content.DialogInterface.OnClickListener() {
                             @Override public void onClick(android.content.DialogInterface dialog, int which) {
                                 database.resetPaperSimulation();
                                 refreshDashboard();
@@ -183,7 +183,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         Button refresh = new Button(this);
-        refresh.setText("Refresh dashboard");
+        refresh.setText("Refresh prices and account");
         refresh.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) { refreshDashboard(); }
         });
@@ -191,7 +191,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.18 · Recent market-condition statistics · Candle coverage and integrity",
+        addText("Prices are supplied by the live market feed. All trades use practice money.",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -320,7 +320,7 @@ public class MainActivity extends Activity {
 
 
     private void addIntervalSelector() {
-        addText("CANDLE INTERVAL", 11, Color.rgb(175, 187, 202), true);
+        addText("PRICE TIMEFRAME", 11, Color.rgb(175, 187, 202), true);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         final int[] intervals = new int[]{1, 5, 15, 60, 240, 1440};
@@ -460,20 +460,14 @@ public class MainActivity extends Activity {
         for (int i = 0; i < symbols.length; i++) {
             OnDeviceLearningEngine.Assessment a = learningEngine.assess(symbols[i], "1m");
             if (i > 0) result.append("\n\n");
-            result.append(symbols[i]).append("  ·  ").append(a.signal)
-                    .append("\nCandle training examples: ").append(a.candleSamples)
-                    .append("\nTraining-set directional accuracy: ")
-                    .append(String.format(Locale.US, "%.1f%%", a.accuracy))
-                    .append("\nSignal confidence: ")
-                    .append(String.format(Locale.US, "%.1f%%", a.confidence))
-                    .append("\nEstimated upward probability: ")
-                    .append(String.format(Locale.US, "%.1f%%", a.probability * 100.0));
-            if (a.candleSamples < 20) result.append("\nExplanation: gathering enough completed candles before issuing a trained signal.");
-            else if ("UPWARD BIAS".equals(a.signal))
-                result.append("\nExplanation: recent momentum/trend features currently lean upward; this is not a prediction guarantee.");
-            else if ("DOWNWARD BIAS".equals(a.signal))
-                result.append("\nExplanation: recent momentum/trend features currently lean downward; this is not a prediction guarantee.");
-            else result.append("\nExplanation: the model does not currently see a strong directional edge.");
+            result.append(symbols[i].replace("USDT", "/USDT")).append("\n");
+            if (a.candleSamples < 20) result.append("AI status: Still learning from price history");
+            else if ("UPWARD BIAS".equals(a.signal)) result.append("AI view: Price may be moving up");
+            else if ("DOWNWARD BIAS".equals(a.signal)) result.append("AI view: Price may be moving down");
+            else result.append("AI view: No clear direction yet");
+            result.append("\nLearning examples: ").append(a.candleSamples)
+                    .append("\nConfidence: ").append(String.format(Locale.US, "%.0f%%", a.confidence))
+                    .append("\nThis is an estimate, not a promise.");
         }
         return result.toString();
     }
@@ -490,55 +484,20 @@ public class MainActivity extends Activity {
             OnDeviceLearningEngine.Assessment a = learningEngine.assess(symbol, "1m");
             OnDeviceLearningEngine.Validation v = learningEngine.validateWalkForward(symbol, "1m");
             Cursor trades = db.rawQuery(
-                    "SELECT COUNT(*), COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0), " +
-                    "COALESCE(SUM(realized_pnl),0), COALESCE(AVG(realized_pnl),0) " +
-                    "FROM paper_trades WHERE symbol=? AND status='CLOSED'",
-                    new String[]{symbol});
-            int totalTrades = 0, winningTrades = 0;
-            double netPnl = 0, averagePnl = 0;
-            try {
-                if (trades.moveToFirst()) {
-                    totalTrades = trades.getInt(0);
-                    winningTrades = trades.getInt(1);
-                    netPnl = trades.getDouble(2);
-                    averagePnl = trades.getDouble(3);
-                }
-            } finally { trades.close(); }
+                    "SELECT COUNT(*), COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0), COALESCE(SUM(realized_pnl),0) " +
+                    "FROM paper_trades WHERE symbol=? AND status='CLOSED'", new String[]{symbol});
+            int total = 0, wins = 0; double result = 0.0;
+            try { if (trades.moveToFirst()) { total = trades.getInt(0); wins = trades.getInt(1); result = trades.getDouble(2); } }
+            finally { trades.close(); }
             if (i > 0) report.append("\n\n");
-            report.append(symbol)
-                    .append("\nCandle examples learned: ").append(a.candleSamples)
-                    .append("\nTraining-set directional accuracy: ")
-                    .append(a.candleSamples == 0 ? "Not available" :
-                            String.format(Locale.US, "%.1f%%", a.accuracy))
-                    .append("\nWalk-forward test candles: ").append(v.samples)
-                    .append("\nWalk-forward directional accuracy: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.accuracy))
-                    .append("\nSimple momentum baseline: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.baselineAccuracy))
-                    .append("\nProbability Brier score (lower is better): ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.4f", v.brierScore))
-                    .append("\nBalanced accuracy: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.balancedAccuracy))
-                    .append("\nUpward precision / recall: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%% / %.1f%%", v.precision, v.recall))
-                    .append("\nDownward specificity: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.specificity))
-                    .append("\nConfusion counts (TP/TN/FP/FN): ").append(v.truePositive).append("/").append(v.trueNegative).append("/").append(v.falsePositive).append("/").append(v.falseNegative)
-                    .append("\nConfidence calibration error (lower is better): ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.2f%%", v.calibrationError))
-                    .append("\nConfidence buckets (range: predictions / mean confidence / observed accuracy):");
-            String[] bucketLabels = new String[]{"50-59%", "60-69%", "70-79%", "80-89%", "90-100%"};
-            for (int bucket = 0; bucket < bucketLabels.length; bucket++) {
-                report.append("\n").append(bucketLabels[bucket]).append(": ")
-                        .append(v.confidenceBucketCounts[bucket]).append(" / ");
-                if (v.confidenceBucketCounts[bucket] == 0) report.append("— / —");
-                else report.append(String.format(Locale.US, "%.1f%% / %.1f%%",
-                        v.confidenceBucketMeanConfidence[bucket] * 100.0,
-                        v.confidenceBucketAccuracy[bucket] * 100.0));
-            }
-            report.append("\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
-                    .append("\nAI paper-outcome accuracy: ")
-                    .append(a.tradeSamples == 0 ? "Not available" :
-                            String.format(Locale.US, "%.1f%%", a.tradeAccuracy))
-                    .append("\nAll closed paper trades: ").append(totalTrades)
-                    .append(" · Wins: ").append(winningTrades)
-                    .append("\nPaper-trade net P/L: ").append(money(netPnl))
-                    .append(" · Average: ").append(money(averagePnl));
+            report.append(symbol.replace("USDT", "/USDT"))
+                    .append("\nPrice examples studied: ").append(a.candleSamples)
+                    .append("\nPast test score: ").append(v.samples == 0 ? "Not enough test data" : String.format(Locale.US, "%.0f%%", v.accuracy))
+                    .append("\nPractice trades finished: ").append(total)
+                    .append("\nProfitable trades: ").append(wins)
+                    .append("\nPractice result: ").append(money(result));
         }
-        report.append("\n\nWalk-forward scores are sequential historical simulations, not independent live forecasts. They can be affected by market regime changes, fees, slippage and limited data; they do not guarantee future results.");
+        report.append("\n\nThe AI learns from saved price history. Past test scores cannot tell us what prices will do next.");
         return report.toString();
     }
 
@@ -604,141 +563,24 @@ public class MainActivity extends Activity {
     }
 
     private String loadPerformanceReport(SQLiteDatabase db) {
-        long cutoff = performanceRangeDays > 0
-                ? System.currentTimeMillis() - performanceRangeDays * 86400000L : 0L;
-        String where = performanceRangeDays > 0
-                ? " WHERE status='CLOSED' AND closed_at>=?"
-                : " WHERE status='CLOSED'";
-        String[] args = performanceRangeDays > 0
-                ? new String[]{String.valueOf(cutoff)} : null;
+        long cutoff = performanceRangeDays > 0 ? System.currentTimeMillis() - performanceRangeDays * 86400000L : 0L;
+        String where = performanceRangeDays > 0 ? " WHERE status='CLOSED' AND closed_at>=?" : " WHERE status='CLOSED'";
+        String[] args = performanceRangeDays > 0 ? new String[]{String.valueOf(cutoff)} : null;
         Cursor c = db.rawQuery(
-                "SELECT COUNT(*)," +
-                "COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END),0)," +
-                "COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN 1 ELSE 0 END),0)," +
-                "COALESCE(SUM(CASE WHEN realized_pnl = 0 THEN 1 ELSE 0 END),0)," +
-                "COALESCE(AVG(CASE WHEN realized_pnl > 0 THEN realized_pnl END),0)," +
-                "COALESCE(AVG(CASE WHEN realized_pnl < 0 THEN realized_pnl END),0)," +
-                "COALESCE(MAX(realized_pnl),0),COALESCE(MIN(realized_pnl),0)," +
-                "COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN realized_pnl ELSE 0 END),0)," +
-                "COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN -realized_pnl ELSE 0 END),0) " +
-                "FROM paper_trades" + where, args);
+                "SELECT COUNT(*),COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl<0 THEN 1 ELSE 0 END),0),COALESCE(SUM(realized_pnl),0)," +
+                "COALESCE(MAX(realized_pnl),0),COALESCE(MIN(realized_pnl),0) FROM paper_trades" + where, args);
         try {
-            String period = performanceRangeDays == 0 ? "ALL-TIME" : "LAST " + performanceRangeDays + " DAYS";
-            if (!c.moveToFirst() || c.getInt(0) == 0)
-                return period + " PERFORMANCE\\nNo closed paper trades in this period yet.\\n\\nThese figures describe the virtual account only.";
-            int total = c.getInt(0);
-            int wins = c.getInt(1);
-            int losses = c.getInt(2);
-            int breakeven = c.getInt(3);
-            double averageWin = c.getDouble(4);
-            double averageLoss = c.getDouble(5);
-            double best = c.getDouble(6);
-            double worst = c.getDouble(7);
-            double grossProfit = c.getDouble(8);
-            double grossLoss = c.getDouble(9);
+            String period = performanceRangeDays == 0 ? "All time" : "Last " + performanceRangeDays + " days";
+            if (!c.moveToFirst() || c.getInt(0) == 0) return period + "\nNo finished practice trades yet.";
+            int total = c.getInt(0), wins = c.getInt(1), losses = c.getInt(2);
+            double net = c.getDouble(3), best = c.getDouble(4), worst = c.getDouble(5);
             double winRate = total > 0 ? wins * 100.0 / total : 0.0;
-            String profitFactor = grossLoss > 0.0
-                    ? String.format(Locale.US, "%.2f", grossProfit / grossLoss)
-                    : (grossProfit > 0.0 ? "No losing trades" : "—");
-            StringBuilder report = new StringBuilder();
-            report.append(period).append(" PERFORMANCE")
-                    .append("\\nClosed trades: ").append(total)
-                    .append("\\nWinning trades: ").append(wins)
-                    .append("\\nLosing trades: ").append(losses)
-                    .append("\\nBreak-even trades: ").append(breakeven)
-                    .append("\\nWin rate: ").append(String.format(Locale.US, "%.1f%%", winRate))
-                    .append("\\nAverage winning trade: ").append(money(averageWin))
-                    .append("\\nAverage losing trade: ").append(money(averageLoss))
-                    .append("\\nBest closed trade: ").append(money(best))
-                    .append("\\nWorst closed trade: ").append(money(worst))
-                    .append("\\nGross simulated profit: ").append(money(grossProfit))
-                    .append("\\nGross simulated loss: ").append(money(grossLoss))
-                    .append("\\nProfit factor: ").append(profitFactor)
-                    .append("\\n\\nTRADE DURATION");
-            Cursor durations = db.rawQuery(
-                    "SELECT COALESCE(AVG(closed_at-opened_at),0)," +
-                    "COALESCE(MIN(closed_at-opened_at),0)," +
-                    "COALESCE(MAX(closed_at-opened_at),0) FROM paper_trades" + where,
-                    args);
-            try {
-                if (durations.moveToFirst()) {
-                    report.append("\\nAverage time open: ").append(formatDuration(durations.getLong(0)))
-                            .append("\\nShortest time open: ").append(formatDuration(durations.getLong(1)))
-                            .append("\\nLongest time open: ").append(formatDuration(durations.getLong(2)));
-                }
-            } finally { durations.close(); }
-            report.append("\\n\\nSTREAK ANALYSIS");
-            Cursor streaks = db.rawQuery(
-                    "SELECT realized_pnl FROM paper_trades" + where + " ORDER BY closed_at ASC,id ASC", args);
-            int currentType = 0, currentLength = 0;
-            int longestWin = 0, longestLoss = 0, currentWin = 0, currentLoss = 0;
-            try {
-                while (streaks.moveToNext()) {
-                    double outcome = streaks.getDouble(0);
-                    int type = outcome > 0.0 ? 1 : (outcome < 0.0 ? -1 : 0);
-                    if (type == 0) {
-                        currentType = 0;
-                        currentLength = 0;
-                        currentWin = 0;
-                        currentLoss = 0;
-                    } else if (type == currentType) {
-                        currentLength++;
-                        if (type > 0) currentWin = currentLength;
-                        else currentLoss = currentLength;
-                    } else {
-                        currentType = type;
-                        currentLength = 1;
-                        currentWin = type > 0 ? 1 : 0;
-                        currentLoss = type < 0 ? 1 : 0;
-                    }
-                    if (type > 0) longestWin = Math.max(longestWin, currentLength);
-                    if (type < 0) longestLoss = Math.max(longestLoss, currentLength);
-                }
-            } finally { streaks.close(); }
-            String currentStreak = currentType == 0 ? "None" :
-                    (currentType > 0 ? "Win streak: " : "Loss streak: ") + currentLength;
-            report.append("\\nCurrent sequence: ").append(currentStreak)
-                    .append("\\nLongest winning sequence: ").append(longestWin)
-                    .append("\\nLongest losing sequence: ").append(longestLoss)
-                    .append("\\nBreak-even trades reset a sequence.")
-                    .append("\\n\\nDAILY BREAKDOWN");
-            Cursor daily = db.rawQuery(
-                    "SELECT date(closed_at/1000,'unixepoch'),COUNT(*)," +
-                    "SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END)," +
-                    "COALESCE(SUM(realized_pnl),0) FROM paper_trades" + where +
-                    " GROUP BY date(closed_at/1000,'unixepoch') ORDER BY date(closed_at/1000,'unixepoch') DESC LIMIT 14",
-                    args);
-            try {
-                int dayCount = 0;
-                while (daily.moveToNext()) {
-                    dayCount++;
-                    report.append("\\n").append(daily.getString(0))
-                            .append(" · ").append(daily.getInt(1)).append(" closed")
-                            .append(" · Wins: ").append(daily.getInt(2))
-                            .append(" · Net: ").append(money(daily.getDouble(3)));
-                }
-                if (dayCount == 0) report.append("\\nNo daily results in this period.");
-            } finally { daily.close(); }
-            report.append("\\n\\nPER-COIN BREAKDOWN");
-            Cursor bySymbol = db.rawQuery(
-                    "SELECT symbol,COUNT(*)," +
-                    "SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END)," +
-                    "COALESCE(SUM(realized_pnl),0),COALESCE(AVG(realized_pnl),0) " +
-                    "FROM paper_trades" + where + " GROUP BY symbol ORDER BY symbol ASC", args);
-            try {
-                while (bySymbol.moveToNext()) {
-                    int symbolTrades = bySymbol.getInt(1);
-                    int symbolWins = bySymbol.getInt(2);
-                    double symbolWinRate = symbolTrades > 0 ? symbolWins * 100.0 / symbolTrades : 0.0;
-                    report.append("\\n\\n").append(bySymbol.getString(0))
-                            .append(" · ").append(symbolTrades).append(" closed")
-                            .append("\\nWin rate: ").append(String.format(Locale.US, "%.1f%%", symbolWinRate))
-                            .append("\\nNet simulated P/L: ").append(money(bySymbol.getDouble(3)))
-                            .append("\\nAverage P/L per trade: ").append(money(bySymbol.getDouble(4)));
-                }
-            } finally { bySymbol.close(); }
-            report.append("\\n\\nStatistics use closed virtual trades in the selected period and recorded net P/L after simulated costs. Historical summaries are not predictions.");
-            return report.toString();
+            return period + "\nFinished trades: " + total +
+                    "\nProfitable trades: " + wins + "\nTrades that lost money: " + losses +
+                    "\nWin rate: " + String.format(Locale.US, "%.0f%%", winRate) +
+                    "\nTotal result: " + money(net) + "\nBest trade: " + money(best) +
+                    "\nWorst trade: " + money(worst) + "\n\nThese are practice results, not real earnings.";
         } finally { c.close(); }
     }
 
@@ -858,80 +700,26 @@ public class MainActivity extends Activity {
 
     /** Reports freshness of the latest completed 1-minute candle for each tracked pair. */
     private String loadMarketHealth() {
-        if (database == null) return "Waiting for local market database…";
+        if (database == null) return "Waiting for price updates…";
         SQLiteDatabase db = database.getReadableDatabase();
         String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
-        StringBuilder report = new StringBuilder();
-        long now = System.currentTimeMillis();
-        int fresh = 0, delayed = 0, stale = 0, missing = 0;
+        StringBuilder out = new StringBuilder(); long now = System.currentTimeMillis();
         for (String symbol : symbols) {
-            Cursor c = db.rawQuery(
-                    "SELECT MAX(open_time) FROM candles WHERE symbol=? AND interval='1m'",
-                    new String[]{symbol});
-            long openTime = 0L;
-            try {
-                if (c.moveToFirst() && !c.isNull(0)) openTime = c.getLong(0);
-            } finally { c.close(); }
-            if (report.length() > 0) report.append("\n");
-            report.append(symbol).append(" · ");
-            if (openTime <= 0L) {
-                report.append("NO CANDLE DATA");
-                missing++;
-                continue;
-            }
-            long ageSeconds = Math.max(0L, now - (openTime + 60000L)) / 1000L;
-            if (ageSeconds <= 180L) { report.append("FRESH"); fresh++; }
-            else if (ageSeconds <= 300L) { report.append("DELAYED"); delayed++; }
-            else { report.append("STALE"); stale++; }
-            report.append(" · last completed candle about ");
-            if (ageSeconds < 60L) report.append(ageSeconds).append(" sec ago");
-            else report.append(ageSeconds / 60L).append(" min ago");
-
-            Cursor gaps = db.rawQuery(
-                    "SELECT open_time FROM candles WHERE symbol=? AND interval='1m' " +
-                    "ORDER BY open_time DESC LIMIT 61",
-                    new String[]{symbol});
-            int gapEvents = 0;
-            long missingMinutes = 0L;
-            long mostRecentGapAge = -1L;
-            long newerTime = -1L;
-            int samples = 0;
-            try {
-                while (gaps.moveToNext()) {
-                    long olderTime = gaps.getLong(0);
-                    samples++;
-                    if (newerTime > 0L) {
-                        long missingCount = Math.max(0L, (newerTime - olderTime) / 60000L - 1L);
-                        if (missingCount > 0L) {
-                            gapEvents++;
-                            missingMinutes += missingCount;
-                            if (mostRecentGapAge < 0L)
-                                mostRecentGapAge = Math.max(0L, (now - newerTime) / 60000L);
-                        }
-                    }
-                    newerTime = olderTime;
-                }
-            } finally { gaps.close(); }
-            report.append("\n  Recent 60-candle integrity: ");
-            if (samples < 2) report.append("not enough candles to assess");
-            else if (gapEvents == 0) report.append("no missing-minute gaps detected");
-            else report.append(gapEvents).append(" gap(s), ")
-                    .append(missingMinutes).append(" missing minute(s); latest gap near ")
-                    .append(mostRecentGapAge).append(" min ago");
-            if (samples >= 2) {
-                double coverage = 100.0 * samples / (samples + (double) missingMinutes);
-                report.append("\n  Observed candle coverage: ")
-                        .append(String.format(Locale.US, "%.1f%%", coverage))
-                        .append(" across the scanned timestamp span");
+            Cursor c = db.rawQuery("SELECT MAX(open_time) FROM candles WHERE symbol=? AND interval='1m'", new String[]{symbol});
+            long latest = 0L;
+            try { if (c.moveToFirst() && !c.isNull(0)) latest = c.getLong(0); } finally { c.close(); }
+            if (out.length() > 0) out.append("\n");
+            out.append(symbol.replace("USDT", "/USDT")).append(": ");
+            if (latest <= 0L) out.append("Waiting for prices");
+            else {
+                long age = Math.max(0L, now - (latest + 60000L)) / 1000L;
+                if (age <= 180L) out.append("Up to date");
+                else if (age <= 300L) out.append("A little delayed");
+                else out.append("Price updates are late");
             }
         }
-        report.append("\n\nFresh: ").append(fresh)
-                .append(" · Delayed: ").append(delayed)
-                .append(" · Stale: ").append(stale)
-                .append(" · Missing: ").append(missing)
-                .append("\n\nFresh ≤ 3 min · Delayed 3–5 min · Stale > 5 min.")
-                .append("\nA stale feed is a data warning, not a market signal.");
-        return report.toString();
+        out.append("\n\nIf prices are delayed, the AI may wait before making a new practice trade.");
+        return out.toString();
     }
 
     /**
@@ -939,48 +727,30 @@ public class MainActivity extends Activity {
      * These measurements describe recent movement and are not trading signals.
      */
     private String loadMarketConditions() {
-        if (database == null) return "Waiting for local market database…";
+        if (database == null) return "Waiting for market prices…";
         SQLiteDatabase db = database.getReadableDatabase();
         String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
         StringBuilder out = new StringBuilder();
         for (String symbol : symbols) {
-            Cursor c = db.rawQuery(
-                    "SELECT high,low,close FROM candles WHERE symbol=? AND interval='1m' " +
-                    "ORDER BY open_time DESC LIMIT 60",
-                    new String[]{symbol});
-            double totalRangePct = 0.0;
-            double totalAbsMovePct = 0.0;
-            double previousClose = -1.0;
-            int rangeSamples = 0, moveSamples = 0;
+            Cursor c = db.rawQuery("SELECT high,low,close FROM candles WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 30", new String[]{symbol});
+            double first = -1.0, latest = -1.0, highest = 0.0, lowest = Double.MAX_VALUE; int count = 0;
             try {
                 while (c.moveToNext()) {
-                    double high = c.getDouble(0);
-                    double low = c.getDouble(1);
-                    double close = c.getDouble(2);
-                    if (close > 0.0 && high >= low) {
-                        totalRangePct += ((high - low) / close) * 100.0;
-                        rangeSamples++;
-                        if (previousClose > 0.0) {
-                            totalAbsMovePct += Math.abs((previousClose - close) / close) * 100.0;
-                            moveSamples++;
-                        }
-                    }
-                    previousClose = close;
+                    double high = c.getDouble(0), low = c.getDouble(1), close = c.getDouble(2);
+                    if (count == 0) latest = close;
+                    first = close; highest = Math.max(highest, high); lowest = Math.min(lowest, low); count++;
                 }
             } finally { c.close(); }
             if (out.length() > 0) out.append("\n\n");
-            out.append(symbol).append(": ");
-            if (rangeSamples == 0) out.append("Not enough completed candles");
+            out.append(symbol.replace("USDT", "/USDT")).append(": ");
+            if (count < 2 || first <= 0.0) out.append("Not enough price history yet");
             else {
-                out.append("Average high-low range: ")
-                        .append(String.format(Locale.US, "%.4f%%", totalRangePct / rangeSamples))
-                        .append("\nAverage absolute close change: ")
-                        .append(moveSamples == 0 ? "Not available" :
-                                String.format(Locale.US, "%.4f%%", totalAbsMovePct / moveSamples))
-                        .append("\nCandles measured: ").append(rangeSamples);
+                double change = ((latest - first) / first) * 100.0;
+                out.append(change > 0.05 ? "Moving up recently" : (change < -0.05 ? "Moving down recently" : "Mostly moving sideways"));
+                out.append("\nRecent high: ").append(money(highest)).append("\nRecent low: ").append(money(lowest));
             }
         }
-        out.append("\n\nDescriptive statistics from recent 1-minute candles only. Not predictions or instructions.");
+        out.append("\n\nThis describes recent price movement. It cannot predict the next move.");
         return out.toString();
     }
 
