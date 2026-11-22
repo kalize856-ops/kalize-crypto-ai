@@ -196,7 +196,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.10 · Time-filtered performance analytics · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.11 · Win/loss streak analysis · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -644,6 +644,40 @@ public class MainActivity extends Activity {
                     .append("\\nGross simulated profit: ").append(money(grossProfit))
                     .append("\\nGross simulated loss: ").append(money(grossLoss))
                     .append("\\nProfit factor: ").append(profitFactor)
+                    .append("\\n\\nSTREAK ANALYSIS");
+            Cursor streaks = db.rawQuery(
+                    "SELECT realized_pnl FROM paper_trades" + where + " ORDER BY closed_at ASC,id ASC", args);
+            int currentType = 0, currentLength = 0;
+            int longestWin = 0, longestLoss = 0, currentWin = 0, currentLoss = 0;
+            try {
+                while (streaks.moveToNext()) {
+                    double outcome = streaks.getDouble(0);
+                    int type = outcome > 0.0 ? 1 : (outcome < 0.0 ? -1 : 0);
+                    if (type == 0) {
+                        currentType = 0;
+                        currentLength = 0;
+                        currentWin = 0;
+                        currentLoss = 0;
+                    } else if (type == currentType) {
+                        currentLength++;
+                        if (type > 0) currentWin = currentLength;
+                        else currentLoss = currentLength;
+                    } else {
+                        currentType = type;
+                        currentLength = 1;
+                        currentWin = type > 0 ? 1 : 0;
+                        currentLoss = type < 0 ? 1 : 0;
+                    }
+                    if (type > 0) longestWin = Math.max(longestWin, currentLength);
+                    if (type < 0) longestLoss = Math.max(longestLoss, currentLength);
+                }
+            } finally { streaks.close(); }
+            String currentStreak = currentType == 0 ? "None" :
+                    (currentType > 0 ? "Win streak: " : "Loss streak: ") + currentLength;
+            report.append("\\nCurrent sequence: ").append(currentStreak)
+                    .append("\\nLongest winning sequence: ").append(longestWin)
+                    .append("\\nLongest losing sequence: ").append(longestLoss)
+                    .append("\\nBreak-even trades reset a sequence.")
                     .append("\\n\\nPER-COIN BREAKDOWN");
             Cursor bySymbol = db.rawQuery(
                     "SELECT symbol,COUNT(*)," +
