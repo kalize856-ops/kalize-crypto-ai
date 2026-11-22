@@ -57,3 +57,11 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - It displays the current dollar drawdown and percentage below that peak, including unrealized position value marked from the latest stored candle.
 - The high-water mark survives app restarts and resets to $100 only when the user explicitly resets the virtual account.
 - This is a historical simulator metric, not a forecast or a measure of real funds.
+
+
+## Filterable paper-trade journal (0.5.7)
+- Journal filters show all trades, currently open positions, or closed positions.
+- Each journal entry includes its local trade ID, market pair, status, open time, quantity, entry price and stop-loss.
+- Closed entries also show exit price, net simulated P/L and close time.
+- The journal displays the latest 100 matching entries to keep the dashboard responsive on older Android devices.
+- All entries are local virtual records; no real orders or funds are involved.
