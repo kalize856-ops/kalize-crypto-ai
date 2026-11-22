@@ -10,8 +10,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
     private static final int DB_VERSION = 9;
-    private static final long DAY_MS = 24L * 60L * 60L * 1000L;
-    private static final long CANDLE_WINDOW_MS = 7L * DAY_MS;
+    private static final long CANDLE_WINDOW_MS = 60L * 60L * 1000L;
 
     public PaperDatabaseHelper(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
@@ -240,7 +239,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         return inserted != -1L;
     }
 
-    /** Keeps the active candle dataset bounded to the most recent 7 days. */
+    /** Keeps the active candle dataset bounded to the most recent hour. */
     public int cleanExpiredCandles() {
         long cutoff = System.currentTimeMillis() - CANDLE_WINDOW_MS;
         return getWritableDatabase().delete("candles", "open_time < ?",
@@ -266,7 +265,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             String first = oldest > 0L ? format.format(new java.util.Date(oldest)) : "Unknown";
             String last = newest > 0L ? format.format(new java.util.Date(newest)) : "Unknown";
             return "Saved 1-minute candles: " + count + "\nOldest saved candle: " + first +
-                    "\nNewest saved candle: " + last + "\nAutomatic cleanup keeps approximately 7 days.";
+                    "\nNewest saved candle: " + last + "\nAutomatic cleanup keeps approximately 1 hour.";
         } finally { cursor.close(); }
     }
 
