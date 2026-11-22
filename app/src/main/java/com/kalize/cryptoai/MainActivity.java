@@ -612,12 +612,17 @@ public class MainActivity extends Activity {
             if (i > 0) report.append("\n\n");
             report.append(symbol.replace("USDT", "/USDT"))
                     .append("\nPrice examples studied: ").append(a.candleSamples)
-                    .append("\nPast test score: ").append(v.samples == 0 ? "Not enough test data" : String.format(Locale.US, "%.0f%%", v.accuracy))
+                    .append("\nPast replay checks: ").append(v.samples)
+                    .append("\nAI replay score: ").append(v.samples == 0 ? "Not enough test data" : String.format(Locale.US, "%.1f%%", v.accuracy))
+                    .append("\nSimple previous-move score: ").append(v.samples == 0 ? "—" : String.format(Locale.US, "%.1f%%", v.baselineAccuracy))
+                    .append("\nBalanced score: ").append(v.samples == 0 ? "—" : String.format(Locale.US, "%.1f%%", v.balancedAccuracy))
+                    .append("\nConfidence mismatch: ").append(v.samples == 0 ? "—" : String.format(Locale.US, "%.1f%%", v.calibrationError))
+                    .append("\nPrediction error score: ").append(v.samples == 0 ? "—" : String.format(Locale.US, "%.3f", v.brierScore))
                     .append("\nPractice trades finished: ").append(total)
                     .append("\nProfitable trades: ").append(wins)
                     .append("\nPractice result: ").append(money(result));
         }
-        report.append("\n\nThe AI learns from saved price history. Past test scores cannot tell us what prices will do next.");
+        report.append("\n\nHow to read this: replay checks test old candles in time order. The simple score follows the previous candle's direction. Balanced score gives equal weight to up and down outcomes. Confidence mismatch compares stated confidence with past correctness; prediction error is lower when probability estimates were closer to outcomes. These are historical checks, not a forecast or a promise of profit.");
         return report.toString();
     }
 
@@ -689,18 +694,29 @@ public class MainActivity extends Activity {
         Cursor c = db.rawQuery(
                 "SELECT COUNT(*),COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0)," +
                 "COALESCE(SUM(CASE WHEN realized_pnl<0 THEN 1 ELSE 0 END),0),COALESCE(SUM(realized_pnl),0)," +
-                "COALESCE(MAX(realized_pnl),0),COALESCE(MIN(realized_pnl),0) FROM paper_trades" + where, args);
+                "COALESCE(MAX(realized_pnl),0),COALESCE(MIN(realized_pnl),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl>0 THEN realized_pnl ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl<0 THEN -realized_pnl ELSE 0 END),0) FROM paper_trades" + where, args);
         try {
             String period = performanceRangeDays == 0 ? "All time" : "Last " + performanceRangeDays + " days";
             if (!c.moveToFirst() || c.getInt(0) == 0) return period + "\nNo finished practice trades yet.";
             int total = c.getInt(0), wins = c.getInt(1), losses = c.getInt(2);
             double net = c.getDouble(3), best = c.getDouble(4), worst = c.getDouble(5);
+            double grossWins = c.getDouble(6), grossLosses = c.getDouble(7);
             double winRate = total > 0 ? wins * 100.0 / total : 0.0;
+            double averageWin = wins > 0 ? grossWins / wins : 0.0;
+            double averageLoss = losses > 0 ? grossLosses / losses : 0.0;
+            double profitFactor = grossLosses > 0.0 ? grossWins / grossLosses : -1.0;
+            double expectancy = total > 0 ? net / total : 0.0;
             return period + "\nFinished trades: " + total +
                     "\nProfitable trades: " + wins + "\nTrades that lost money: " + losses +
-                    "\nWin rate: " + String.format(Locale.US, "%.0f%%", winRate) +
-                    "\nTotal result: " + money(net) + "\nBest trade: " + money(best) +
-                    "\nWorst trade: " + money(worst) + "\n\nThese are practice results, not real earnings.";
+                    "\nWin rate: " + String.format(Locale.US, "%.1f%%", winRate) +
+                    "\nTotal result: " + money(net) + "\nAverage result per trade: " + money(expectancy) +
+                    "\nAverage profitable trade: " + money(averageWin) +
+                    "\nAverage losing trade: " + money(-averageLoss) +
+                    "\nProfit-to-loss ratio: " + (profitFactor < 0.0 ? "Not available yet" : String.format(Locale.US, "%.2f", profitFactor)) +
+                    "\nBest trade: " + money(best) + "\nWorst trade: " + money(worst) +
+                    "\n\nThese are practice results after simulated costs, not real earnings or a guide to future results.";
         } finally { c.close(); }
     }
 
