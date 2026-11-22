@@ -10,7 +10,7 @@ android {
         applicationId 'com.kalize.cryptoai'
         minSdk 19
         targetSdk 28
-        versionCode 3
+        versionCode 4
         versionName '0.1.4'
     }
 
