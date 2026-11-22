@@ -252,10 +252,11 @@ public class MainActivity extends Activity {
                 marketValue += value;
                 unrealized += pnl;
                 if (open.length() > 0) open.append("\n\n");
-                open.append(symbol).append("\nQuantity: ").append(fmt(quantity, 6))
-                        .append("\nEntry: ").append(money(entry))
-                        .append("   Mark: ").append(money(price))
-                        .append("\nUnrealized P/L: ").append(money(pnl));
+                open.append(symbol.replace("USDT", "/USDT"))
+                        .append("\nStatus: AI is monitoring this trade")
+                        .append("\nCurrent result: ").append(pnl > 0.0 ? "Profit " :
+                                (pnl < 0.0 ? "Loss " : "Around break-even "))
+                        .append(money(pnl));
             }
         } finally { positions.close(); }
         if (open.length() == 0) open.append("No open positions.");
@@ -797,39 +798,41 @@ public class MainActivity extends Activity {
     private String loadHistory(SQLiteDatabase db) {
         String where = "ALL".equals(historyFilter) ? "" : " WHERE status=?";
         Cursor c = db.rawQuery(
-                "SELECT id,symbol,status,quantity,entry_price,exit_price,stop_loss," +
-                "realized_pnl,opened_at,closed_at FROM paper_trades" + where +
+                "SELECT id,symbol,status,realized_pnl,opened_at,closed_at FROM paper_trades" + where +
                 " ORDER BY opened_at DESC LIMIT 100",
                 "ALL".equals(historyFilter) ? null : new String[]{historyFilter});
         StringBuilder b = new StringBuilder();
         int count = 0;
         java.text.SimpleDateFormat dateFormat =
-                new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+                new java.text.SimpleDateFormat("MMM d, HH:mm", Locale.US);
         try {
             while (c.moveToNext()) {
                 count++;
                 if (b.length() > 0) b.append("\n\n");
                 String status = c.getString(2);
-                b.append("#").append(c.getLong(0)).append("  ·  ")
-                        .append(c.getString(1)).append("  ·  ").append(status)
-                        .append("\nOpened: ").append(dateFormat.format(new java.util.Date(c.getLong(8))))
-                        .append("\nQuantity: ").append(fmt(c.getDouble(3), 6))
-                        .append("\nEntry: ").append(money(c.getDouble(4)))
-                        .append("\nStop-loss: ").append(c.getDouble(6) > 0
-                                ? money(c.getDouble(6)) : "Not set");
-                if (!c.isNull(5)) b.append("\nExit: ").append(money(c.getDouble(5)));
+                String symbol = c.getString(1).replace("USDT", "/USDT");
+                b.append(symbol).append("  ·  ")
+                        .append("OPEN".equals(status) ? "In progress" : "Finished");
                 if ("CLOSED".equals(status)) {
-                    b.append("\nNet P/L: ").append(money(c.getDouble(7)));
-                    if (!c.isNull(9))
-                        b.append("\nClosed: ").append(dateFormat.format(new java.util.Date(c.getLong(9))));
+                    double result = c.getDouble(3);
+                    b.append("\nResult: ").append(result > 0.0 ? "Profit " :
+                            (result < 0.0 ? "Loss " : "Break-even "))
+                            .append(money(result));
+                } else {
+                    b.append("\nResult: Not final yet");
                 }
+                b.append("\nAI action: ").append("CLOSED".equals(status)
+                        ? "The AI finished this simulated trade."
+                        : "The AI is still monitoring this simulated trade.");
+                b.append("\nDate: ").append(dateFormat.format(new java.util.Date(c.getLong(4))));
             }
         } finally { c.close(); }
         if (count == 0) return "No " + historyFilter.toLowerCase(Locale.US) +
-                " paper trades recorded yet.";
-        String header = "Showing " + count + (count == 100 ? " (latest 100)" : "") +
-                " · Filter: " + historyFilter;
-        return header + "\n\n" + b.toString();
+                " trades yet. The AI will list them here as it makes simulated trades.";
+        String header = "Your latest " + count + (count == 100 ? " trades (latest 100)" : " trades") +
+                " · " + historyFilter.toLowerCase(Locale.US) + " filter";
+        return header + "\n\n" + b.toString() +
+                "\n\nAll trades use virtual money only.";
     }
 
     private String formatDuration(long durationMs) {
