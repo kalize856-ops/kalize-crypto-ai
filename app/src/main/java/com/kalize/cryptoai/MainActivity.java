@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
     private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity, profitBubbleTrades, profitBubbleLatest;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
-    private int selectedRangeMinutes = 360;
+    private int selectedRangeMinutes = 60;
     private int selectedCandleIntervalMinutes = 1;
     private String selectedSymbol = "BTCUSDT";
     private boolean receiverRegistered = false;
@@ -559,8 +559,8 @@ public class MainActivity extends Activity {
         addText("PRICE TIMEFRAME", 11, Color.rgb(175, 187, 202), true);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        final int[] intervals = new int[]{1, 5, 15, 60, 240, 1440};
-        final String[] labels = new String[]{"1m", "5m", "15m", "1h", "4h", "1d"};
+        final int[] intervals = new int[]{1, 5, 15, 30, 60};
+        final String[] labels = new String[]{"1m", "5m", "15m", "30m", "1h"};
         for (int i = 0; i < intervals.length; i++) {
             final int interval = intervals[i];
             Button button = new Button(this);
@@ -583,8 +583,8 @@ public class MainActivity extends Activity {
     private void addRangeSelector() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        final int[] ranges = new int[]{60, 360, 1440, 10080};
-        final String[] labels = new String[]{"1H", "6H", "24H", "7D"};
+        final int[] ranges = new int[]{15, 30, 60};
+        final String[] labels = new String[]{"15M", "30M", "1H"};
         for (int i = 0; i < ranges.length; i++) {
             final int range = ranges[i];
             Button button = new Button(this);
@@ -605,11 +605,9 @@ public class MainActivity extends Activity {
     }
 
     private String rangeLabel(int minutes) {
-        if (minutes == 60) return "1 hour";
-        if (minutes == 360) return "6 hours";
-        if (minutes == 1440) return "24 hours";
-        if (minutes == 10080) return "7 days";
-        return "7 days";
+        if (minutes == 15) return "15 minutes";
+        if (minutes == 30) return "30 minutes";
+        return "1 hour";
     }
 
     private String intervalLabel(int minutes) {
