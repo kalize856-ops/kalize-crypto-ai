@@ -8,17 +8,19 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import java.util.Locale;
 
-/** Lightweight dashboard; platform-specific window APIs are guarded for API 19+. */
+/** Lightweight local paper-trading dashboard; compatible with Android API 19+. */
 public class MainActivity extends Activity {
     private LinearLayout content;
+    private PaperDatabaseHelper database;
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        database = new PaperDatabaseHelper(this);
+        database.cleanExpiredCandles();
 
-        // These window-color methods were introduced in API 21.
-        // Guard them so the same APK starts safely on Android 4.4.4 (API 19).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             getWindow().setStatusBarColor(Color.rgb(16, 24, 32));
             getWindow().setNavigationBarColor(Color.rgb(16, 24, 32));
@@ -36,15 +38,31 @@ public class MainActivity extends Activity {
         addText("LITE  •  PAPER TRADING", 12, Color.rgb(22, 192, 140), true);
         addSpace(22);
         addText("VIRTUAL PORTFOLIO", 12, Color.LTGRAY, true);
-        addText("$100.00", 34, Color.WHITE, true);
-        addText("Starting balance · simulated funds only", 12, Color.LTGRAY, false);
+        addText(String.format(Locale.US, "$%,.2f", database.getCashBalance()),
+                34, Color.WHITE, true);
+        addText("Starting balance: $100.00 · simulated funds only",
+                12, Color.LTGRAY, false);
         addSpace(20);
-        addPanel("MARKET WATCH", "Live market connection: not configured yet\nBTC / USD    —\nETH / USD    —\nSOL / USD    —");
-        addPanel("PAPER TRADING", "Open positions    0\nClosed trades      0\nNet profit/loss    $0.00");
-        addPanel("HISTORICAL DATA", "Learning window: 30 days\nCandlestick storage: local database\nAutomatic retention cleanup: planned");
-        addPanel("RISK CONTROLS", "Paper mode only\nFee and slippage simulation: planned\nEmergency pause: planned");
-        addText("Build 0.1.1 · API 19+ compatibility", 11, Color.GRAY, false);
+        addPanel("MARKET WATCH",
+                "Live market connection: not configured yet\nBTC / USD    —\nETH / USD    —\nSOL / USD    —");
+        addPanel("PAPER TRADING",
+                "Closed trades    " + database.getClosedTradeCount() +
+                "\nReal-money orders    disabled");
+        addPanel("HISTORICAL DATA",
+                "Learning window: 30 days\nStored candles: " +
+                database.getStoredCandleCount() +
+                "\nExpired candles: automatically cleaned");
+        addPanel("RISK CONTROLS",
+                "Simulation only\nFees and slippage: next implementation stage\nNo exchange order permissions");
+        addText("Build 0.1.2 · Android 4.4.4+ · Local SQLite storage",
+                11, Color.GRAY, false);
         setContentView(scroll);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (database != null) database.closeStore();
+        super.onDestroy();
     }
 
     private void addPanel(String title, String body) {
@@ -64,7 +82,8 @@ public class MainActivity extends Activity {
         details.setPadding(dp(14), dp(8), dp(14), dp(16));
         details.setBackgroundColor(Color.rgb(27, 39, 54));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
         params.bottomMargin = dp(14);
         content.addView(details, params);
     }
