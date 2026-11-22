@@ -302,14 +302,14 @@ public class MainActivity extends Activity {
             OnDeviceLearningEngine.Assessment a = learningEngine.assess(symbols[i], "1m");
             if (i > 0) result.append("\n\n");
             result.append(symbols[i]).append("  ·  ").append(a.signal)
-                    .append("\nTraining examples: ").append(a.samples)
-                    .append("\nHistorical directional accuracy: ")
+                    .append("\nCandle training examples: ").append(a.candleSamples)
+                    .append("\nTraining-set directional accuracy: ")
                     .append(String.format(Locale.US, "%.1f%%", a.accuracy))
                     .append("\nSignal confidence: ")
                     .append(String.format(Locale.US, "%.1f%%", a.confidence))
                     .append("\nEstimated upward probability: ")
                     .append(String.format(Locale.US, "%.1f%%", a.probability * 100.0));
-            if (a.samples < 20) result.append("\nExplanation: gathering enough completed candles before issuing a trained signal.");
+            if (a.candleSamples < 20) result.append("\nExplanation: gathering enough completed candles before issuing a trained signal.");
             else if ("UPWARD BIAS".equals(a.signal))
                 result.append("\nExplanation: recent momentum/trend features currently lean upward; this is not a prediction guarantee.");
             else if ("DOWNWARD BIAS".equals(a.signal))
