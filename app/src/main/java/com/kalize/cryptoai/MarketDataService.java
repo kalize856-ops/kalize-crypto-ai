@@ -38,6 +38,7 @@ public final class MarketDataService extends Service {
     private WebSocket socket;
     private PaperDatabaseHelper database;
     private OnDeviceLearningEngine learner;
+    private AutoPaperTradingController autoTrader;
     private boolean stoppedByUser = false;
     private boolean connecting = false;
     private int retrySeconds = 2;
@@ -51,6 +52,7 @@ public final class MarketDataService extends Service {
         super.onCreate();
         database = new PaperDatabaseHelper(getApplicationContext());
         learner = new OnDeviceLearningEngine(database);
+        autoTrader = new AutoPaperTradingController(database);
         client = new OkHttpClient.Builder()
                 .pingInterval(20, TimeUnit.SECONDS)
                 .connectTimeout(20, TimeUnit.SECONDS)
@@ -205,7 +207,8 @@ public final class MarketDataService extends Service {
 
             // The just-closed candle supplies the next label for the prior candle.
             learner.learn(symbol, "1m");
-            broadcast(symbol + " · 1m candle saved");
+            String automation = autoTrader.onCompletedCandle(symbol, "1m", close);
+            broadcast(symbol + " · 1m candle saved\\n" + automation);
             updateNotification("Live · " + symbol + " candle saved");
         } catch (Exception ignored) {
             // Malformed or unexpected packets are discarded; the stream stays alive.
