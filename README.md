@@ -182,3 +182,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - The monitor reports evidence and promotion readiness; it does not silently replace the active model or loosen trading safeguards.
 - Any future model/strategy candidate must be tested in replay and paper-only observation before promotion.
 - All trading remains simulated. No real exchange orders, funds or credentials are supported, and no performance is guaranteed.
+
+
+## Build 0.5.32 — exploratory 5% paper-trade threshold
+- The provisional on-device model may generate upward/downward bias signals at a 5% confidence margin from 50% (model probability at least 52.5% or at most 47.5%).
+- The automatic paper-entry confidence floor is 5%; learning continues while paper evaluation runs.
+- Fresh consecutive candles, short-term price confirmation, per-market cooldown, virtual-wallet limits, stop-loss monitoring and daily risk controls remain in place. Therefore 5% confidence does not guarantee an immediate trade.
+- This deliberately low threshold can produce many false signals. It is strictly for virtual simulation and is not evidence of a reliable edge. No exchange orders or real funds are supported.
