@@ -45,6 +45,35 @@ public final class MarketDataService extends Service {
     private boolean connecting = false;
     private int retrySeconds = 2;
     private Thread backfillThread;
+    private long lastMessageAt = 0L;
+    private static final long STALE_FEED_MS = 90000L;
+    private static final long CLEANUP_INTERVAL_MS = 6L * 60L * 60L * 1000L;
+    private static final long BACKFILL_RETRY_MS = 5L * 60L * 1000L;
+
+    private final Runnable cleanupTask = new Runnable() {
+        @Override public void run() {
+            if (stoppedByUser) return;
+            try { database.cleanExpiredCandles(); } catch (Exception ignored) { }
+            handler.postDelayed(this, CLEANUP_INTERVAL_MS);
+        }
+    };
+    private final Runnable backfillRetry = new Runnable() {
+        @Override public void run() { if (!stoppedByUser) startHistoricalBackfill(); }
+    };
+    private final Runnable staleFeedCheck = new Runnable() {
+        @Override public void run() {
+            if (stoppedByUser) return;
+            if (socket != null && lastMessageAt > 0L && System.currentTimeMillis() - lastMessageAt > STALE_FEED_MS) {
+                WebSocket stale = socket;
+                socket = null;
+                connecting = false;
+                stale.cancel();
+                broadcast("Market feed stopped responding · reconnecting");
+                scheduleReconnect();
+            }
+            handler.postDelayed(this, 30000L);
+        }
+    };
 
     private final Runnable reconnect = new Runnable() {
         @Override public void run() { connect(); }
@@ -62,6 +91,8 @@ public final class MarketDataService extends Service {
                 .build();
         createNotificationChannel();
         startHistoricalBackfill();
+        handler.postDelayed(cleanupTask, CLEANUP_INTERVAL_MS);
+        handler.postDelayed(staleFeedCheck, 30000L);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -86,17 +117,21 @@ public final class MarketDataService extends Service {
         Request request = new Request.Builder().url(STREAM_URL).build();
         socket = client.newWebSocket(request, new WebSocketListener() {
             @Override public void onOpen(WebSocket webSocket, Response response) {
+                if (socket != webSocket || stoppedByUser) { webSocket.cancel(); return; }
                 connecting = false;
+                lastMessageAt = System.currentTimeMillis();
                 retrySeconds = 2;
                 broadcast("Connected · waiting for completed 1m candles");
                 updateNotification("Connected · 1-minute candles");
             }
 
             @Override public void onMessage(WebSocket webSocket, String text) {
+                lastMessageAt = System.currentTimeMillis();
                 handleMessage(text);
             }
 
             @Override public void onMessage(WebSocket webSocket, ByteString bytes) {
+                lastMessageAt = System.currentTimeMillis();
                 handleMessage(bytes.utf8());
             }
 
@@ -105,22 +140,28 @@ public final class MarketDataService extends Service {
             }
 
             @Override public void onClosed(WebSocket webSocket, int code, String reason) {
-                socket = null;
-                connecting = false;
-                scheduleReconnect();
+                if (socket == webSocket) {
+                    socket = null;
+                    connecting = false;
+                    scheduleReconnect();
+                }
             }
 
             @Override public void onFailure(WebSocket webSocket, Throwable error, Response response) {
-                socket = null;
-                connecting = false;
-                broadcast("Connection lost · reconnecting");
-                scheduleReconnect();
+                if (socket == webSocket) {
+                    socket = null;
+                    connecting = false;
+                    broadcast("Connection lost · reconnecting");
+                    scheduleReconnect();
+                }
             }
         });
     }
 
     /** Downloads up to 30 days of completed one-minute candles without blocking the feed. */
     private void startHistoricalBackfill() {
+        if (stoppedByUser || (backfillThread != null && backfillThread.isAlive())) return;
+        handler.removeCallbacks(backfillRetry);
         backfillThread = new Thread(new Runnable() {
             @Override public void run() {
                 String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
@@ -181,7 +222,9 @@ public final class MarketDataService extends Service {
                     broadcast("30-day history ready · AI training caught up");
                     updateNotification("30-day history ready · live feed active");
                 } catch (Exception error) {
-                    broadcast("Historical backfill paused · live feed remains active");
+                    broadcast("Historical backfill paused · will retry in 5 minutes · live feed remains active");
+                    handler.removeCallbacks(backfillRetry);
+                    handler.postDelayed(backfillRetry, BACKFILL_RETRY_MS);
                 }
             }
         }, "Kalize-History-Backfill");
@@ -295,6 +338,9 @@ public final class MarketDataService extends Service {
     @Override public void onDestroy() {
         stoppedByUser = true;
         handler.removeCallbacks(reconnect);
+        handler.removeCallbacks(cleanupTask);
+        handler.removeCallbacks(staleFeedCheck);
+        handler.removeCallbacks(backfillRetry);
         if (socket != null) socket.close(1000, "Service stopped");
         if (client != null) client.dispatcher().executorService().shutdown();
         if (backfillThread != null) backfillThread.interrupt();
