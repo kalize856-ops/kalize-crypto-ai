@@ -110,3 +110,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Adds average, shortest and longest holding duration to the performance report.
 - Uses only completed virtual trades in the currently selected 7-day, 30-day or all-time reporting range.
 - Displays durations in days, hours and minutes; this is descriptive history, not a recommendation or prediction.
+
+
+### Build 0.5.15 — exportable paper-trade journal
+- Adds an Export journal as CSV action below the All/Open/Closed journal filters.
+- Uses Android's document picker so the user chooses where to save the file (API 19+).
+- Exports the selected filter's records with trade ID, symbol, side, quantity, entry/exit prices, stop-loss, realized P/L, fees, status, epoch-millisecond timestamps and AI metadata.
+- CSV values are escaped safely; export remains strictly virtual and does not connect to an exchange.
