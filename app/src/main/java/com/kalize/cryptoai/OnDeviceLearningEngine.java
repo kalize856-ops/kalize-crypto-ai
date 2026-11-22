@@ -90,7 +90,7 @@ public final class OnDeviceLearningEngine {
         if(n<7||m.samples<20)
             return new Assessment(symbol,"LEARNING",0,m.samples,
                     m.samples==0?0:100.0*m.correct/m.samples,0.5);
-        double p=probability(m,features(reverse(close),reverse(high),reverse(low),reverse(volume),6));
+        reverse(close);reverse(high);reverse(low);reverse(volume);\n        double p=probability(m,features(close,high,low,volume,6));
         String signal=p>0.58?"UPWARD BIAS":(p<0.42?"DOWNWARD BIAS":"NEUTRAL");
         return new Assessment(symbol,signal,Math.abs(p-0.5)*200,m.samples,
                 100.0*m.correct/m.samples,p);
