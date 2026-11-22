@@ -786,7 +786,7 @@ public class MainActivity extends Activity {
             try {
                 if (c.moveToFirst() && !c.isNull(0)) openTime = c.getLong(0);
             } finally { c.close(); }
-            if (report.length() > 0) report.append("\\n");
+            if (report.length() > 0) report.append("\n");
             report.append(symbol).append(" · ");
             if (openTime <= 0L) {
                 report.append("NO CANDLE DATA");
@@ -801,12 +801,12 @@ public class MainActivity extends Activity {
             if (ageSeconds < 60L) report.append(ageSeconds).append(" sec ago");
             else report.append(ageSeconds / 60L).append(" min ago");
         }
-        report.append("\\n\\nFresh: ").append(fresh)
+        report.append("\n\nFresh: ").append(fresh)
                 .append(" · Delayed: ").append(delayed)
                 .append(" · Stale: ").append(stale)
                 .append(" · Missing: ").append(missing)
-                .append("\\n\\nFresh ≤ 3 min · Delayed 3–5 min · Stale > 5 min.")
-                .append("\\nA stale feed is a data warning, not a market signal.");
+                .append("\n\nFresh ≤ 3 min · Delayed 3–5 min · Stale > 5 min.")
+                .append("\nA stale feed is a data warning, not a market signal.");
         return report.toString();
     }
 
