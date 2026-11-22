@@ -19,10 +19,10 @@ A lightweight Android paper-trading research app. It is a simulator only: it doe
 - Candle table for OHLCV market history, with duplicate candle replacement.
 - Separate WebSocket ticker streams show live last price, 24-hour change, high, low and quote volume for BTC, ETH and SOL.
 - Interactive candlestick chart with 1m, 5m, 15m, 1h, 4h and 1d views aggregated from completed 1-minute candles.
-- Selectable chart history windows from 1 hour to 7 days; the chart displays up to 300 recent aggregated candles.
-- Automatic cleanup of candles older than the latest 7 days.
+- Selectable chart history windows from 15 minutes to 1 hour; the chart displays up to 300 recent aggregated candles.
+- Automatic cleanup of candles older than the latest 1 hour.
 - Paper-trade ledger table and app-settings table.
-- On-device incremental learning from completed 1-minute candles and simulated trade outcomes.
+- On-device incremental learning from completed 1-minute candles and simulated trade outcomes, with paper trading allowed to run while learning continues.
 - Optional automatic AI paper trading, OFF by default, with local-only simulated entries and exits.
 - Simulated risk limits: up to 1% estimated risk per trade, 2% daily loss pause, and 25% maximum position size.
 - Real-money trading and exchange order submission are intentionally not included.
@@ -144,3 +144,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - If the market WebSocket delivers the same symbol, interval and candle timestamp again, the duplicate is ignored before AI learning and paper-trade evaluation run.
 - Historical backfill keeps its existing replace behavior so refreshed historical data can still correct previously stored candle values.
 - This protects the virtual ledger from processing the same live candle event more than once; it does not guarantee trading performance or predict market outcomes.
+
+
+## One-hour data window and concurrent paper learning
+- Historical backfill and retained one-minute candle data are limited to the latest hour.
+- Older candles are cleaned automatically.
+- Paper trading can use a provisional model estimate after the seven-candle feature window is available; incremental AI learning continues as new completed candles arrive.
+- Entries still require an upward-bias signal and the configured confidence threshold. All activity remains virtual and local.
