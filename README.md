@@ -104,3 +104,9 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Labels each symbol's feed as fresh (up to 3 minutes), delayed (over 3 and up to 5 minutes), stale (over 5 minutes), or missing.
 - Shows the approximate age of each latest candle and a combined status count.
 - This is a data-quality warning only; it does not create trading signals or place orders.
+
+
+### Build 0.5.14 — trade-duration analytics
+- Adds average, shortest and longest holding duration to the performance report.
+- Uses only completed virtual trades in the currently selected 7-day, 30-day or all-time reporting range.
+- Displays durations in days, hours and minutes; this is descriptive history, not a recommendation or prediction.
