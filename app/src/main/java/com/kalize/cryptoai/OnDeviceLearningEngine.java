@@ -188,9 +188,11 @@ public final class OnDeviceLearningEngine {
         int candleCorrect=Math.max(0,m.correct-m.tradeCorrect);
         double candleAccuracy=m.candleSamples==0?0:100.0*candleCorrect/m.candleSamples;
         double tradeAccuracy=m.tradeSamples==0?0:100.0*m.tradeCorrect/m.tradeSamples;
-        if(n<7||m.candleSamples<20)
+        if(n<7)
             return new Assessment(symbol,"LEARNING",0,m.samples,candleAccuracy,0.5,
                     m.candleSamples,m.tradeSamples,tradeAccuracy);
+        // Provisional estimates can be used once the seven-candle feature window exists.
+        // Incremental training continues independently as each new completed candle arrives.
         reverse(close);reverse(high);reverse(low);reverse(volume);
         double p=probability(m,features(close,high,low,volume,6));
         String signal=p>0.58?"UPWARD BIAS":(p<0.42?"DOWNWARD BIAS":"NEUTRAL");
