@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel;
+    private TextView marketStatus, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
     private Button autoButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -137,6 +137,7 @@ public class MainActivity extends Activity {
         modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");
         learningReportPanel = addPanel("AI MODEL PERFORMANCE REPORT", "Collecting learning statistics…");
         openTradesPanel = addPanel("OPEN SIMULATED POSITIONS", "No open positions.");
+        performancePanel = addPanel("PAPER-TRADE PERFORMANCE", "Waiting for closed paper trades…");
         historyPanel = addPanel("PAPER-TRADE JOURNAL", "No paper trades recorded yet.");
         addHistoryFilterSelector();
 
@@ -193,7 +194,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.7 · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.8 · Paper-trade performance analytics · Filterable paper-trade journal · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -290,6 +291,7 @@ public class MainActivity extends Activity {
         openTradesPanel.setText(open.toString());
         refreshCharts(db);
         historyPanel.setText(loadHistory(db));
+        if (performancePanel != null) performancePanel.setText(loadPerformanceReport(db));
         modelPanel.setText(loadModels());
         if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
         if (autoButton != null) updateAutoButton();
@@ -563,6 +565,51 @@ public class MainActivity extends Activity {
             row.addView(button, params);
         }
         content.addView(row);
+    }
+
+    private String loadPerformanceReport(SQLiteDatabase db) {
+        Cursor c = db.rawQuery(
+                "SELECT COUNT(*)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN 1 ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN 1 ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl = 0 THEN 1 ELSE 0 END),0)," +
+                "COALESCE(AVG(CASE WHEN realized_pnl > 0 THEN realized_pnl END),0)," +
+                "COALESCE(AVG(CASE WHEN realized_pnl < 0 THEN realized_pnl END),0)," +
+                "COALESCE(MAX(realized_pnl),0),COALESCE(MIN(realized_pnl),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN realized_pnl ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN -realized_pnl ELSE 0 END),0) " +
+                "FROM paper_trades WHERE status='CLOSED'", null);
+        try {
+            if (!c.moveToFirst() || c.getInt(0) == 0)
+                return "No closed paper trades yet. Performance statistics will appear after a simulated position is closed.\n\nThese figures describe the virtual account only.";
+            int total = c.getInt(0);
+            int wins = c.getInt(1);
+            int losses = c.getInt(2);
+            int breakeven = c.getInt(3);
+            double averageWin = c.getDouble(4);
+            double averageLoss = c.getDouble(5);
+            double best = c.getDouble(6);
+            double worst = c.getDouble(7);
+            double grossProfit = c.getDouble(8);
+            double grossLoss = c.getDouble(9);
+            double winRate = total > 0 ? wins * 100.0 / total : 0.0;
+            String profitFactor = grossLoss > 0.0
+                    ? String.format(Locale.US, "%.2f", grossProfit / grossLoss)
+                    : (grossProfit > 0.0 ? "No losing trades" : "—");
+            return "Closed trades: " + total +
+                    "\nWinning trades: " + wins +
+                    "\nLosing trades: " + losses +
+                    "\nBreak-even trades: " + breakeven +
+                    "\nWin rate: " + String.format(Locale.US, "%.1f%%", winRate) +
+                    "\nAverage winning trade: " + money(averageWin) +
+                    "\nAverage losing trade: " + money(averageLoss) +
+                    "\nBest closed trade: " + money(best) +
+                    "\nWorst closed trade: " + money(worst) +
+                    "\nGross simulated profit: " + money(grossProfit) +
+                    "\nGross simulated loss: " + money(grossLoss) +
+                    "\nProfit factor: " + profitFactor +
+                    "\n\nStatistics use all closed virtual trades and include the recorded net P/L after simulated costs. They are historical summaries, not predictions.";
+        } finally { c.close(); }
     }
 
     private String loadHistory(SQLiteDatabase db) {
