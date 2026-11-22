@@ -12,6 +12,8 @@ A lightweight Android paper-trading research app. It is a simulator only: it doe
 - Local SQLite database.
 - $100 simulated starting wallet, initialized once and retained between launches.
 - Candle table for OHLCV market history, with duplicate candle replacement.
+- Interactive candlestick chart with 1m, 5m, 15m, 1h, 4h and 1d views aggregated from completed 1-minute candles.
+- Selectable history windows from 1 hour to 30 days; the chart displays up to 300 recent aggregated candles.
 - Automatic cleanup of candles older than the latest 30 days.
 - Paper-trade ledger table and app-settings table.
 - On-device incremental learning from completed 1-minute candles and simulated trade outcomes.
