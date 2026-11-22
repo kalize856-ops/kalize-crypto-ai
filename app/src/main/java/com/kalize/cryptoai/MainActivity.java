@@ -26,7 +26,9 @@ public class MainActivity extends Activity {
     private AutoPaperTradingController autoTrader;
     private TextView marketStatus, portfolioPanel, modelPanel, openTradesPanel, historyPanel;
     private Button autoButton;
-    private SimpleLineChartView priceChart, equityChart;
+    private CandlestickChartView priceChart;
+    private SimpleLineChartView equityChart;
+    private int selectedRangeMinutes = 360;
     private String selectedSymbol = "BTCUSDT";
     private boolean receiverRegistered = false;
 
@@ -75,9 +77,10 @@ public class MainActivity extends Activity {
                 "Starting persistent WebSocket connection…\nBTC / USDT    waiting\n" +
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
         addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
-        addText("Choose a pair, then touch or drag across the chart to inspect closing prices.", 12, Color.LTGRAY, false);
+        addText("Choose a pair and time range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
         addPairSelector();
-        priceChart = new SimpleLineChartView(this);
+        addRangeSelector();
+        priceChart = new CandlestickChartView(this);
         priceChart.setBackgroundColor(Color.rgb(27, 39, 54));
         content.addView(priceChart, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(220)));
@@ -128,7 +131,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.1.8 · Android 4.4.4+ · Binance public data · Local SQLite",
+        addText("Build 0.1.9 · Android 4.4.4+ · Binance public data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -204,18 +207,66 @@ public class MainActivity extends Activity {
         content.addView(row);
     }
 
+
+    private void addRangeSelector() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final int[] ranges = new int[]{60, 360, 1440, 10080, 43200};
+        final String[] labels = new String[]{"1H", "6H", "24H", "7D", "30D"};
+        for (int i = 0; i < ranges.length; i++) {
+            final int range = ranges[i];
+            Button button = new Button(this);
+            button.setText(labels[i]);
+            button.setTextSize(10);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View view) {
+                    selectedRangeMinutes = range;
+                    refreshDashboard();
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1f);
+            params.setMargins(dp(1), dp(2), dp(1), dp(8));
+            row.addView(button, params);
+        }
+        content.addView(row);
+    }
+
+    private String rangeLabel(int minutes) {
+        if (minutes == 60) return "1 hour";
+        if (minutes == 360) return "6 hours";
+        if (minutes == 1440) return "24 hours";
+        if (minutes == 10080) return "7 days";
+        return "30 days";
+    }
+
     private void refreshCharts(SQLiteDatabase db) {
         if (priceChart != null) {
-            Cursor prices = db.rawQuery(
-                    "SELECT close FROM candles WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 60",
+            Cursor candles = db.rawQuery(
+                    "SELECT open,high,low,close FROM candles WHERE symbol=? AND interval='1m' " +
+                    "ORDER BY open_time DESC LIMIT " + selectedRangeMinutes,
                     new String[]{selectedSymbol});
-            double[] values = new double[prices.getCount()];
+            int count = candles.getCount();
+            int plotted = Math.min(120, count);
+            double[] o = new double[plotted], h = new double[plotted];
+            double[] l = new double[plotted], close = new double[plotted];
             try {
-                int index = values.length - 1;
-                while (prices.moveToNext() && index >= 0) values[index--] = prices.getDouble(0);
-            } finally { prices.close(); }
-            priceChart.setSeries(values, selectedSymbol + " · last " + values.length +
-                    " completed 1-minute closes", Color.rgb(22, 192, 140));
+                int sourceIndex = 0;
+                int targetIndex = plotted - 1;
+                int stride = Math.max(1, (int)Math.ceil((double)count / Math.max(1, plotted)));
+                while (candles.moveToNext()) {
+                    if (sourceIndex % stride == 0 && targetIndex >= 0) {
+                        o[targetIndex] = candles.getDouble(0);
+                        h[targetIndex] = candles.getDouble(1);
+                        l[targetIndex] = candles.getDouble(2);
+                        close[targetIndex] = candles.getDouble(3);
+                        targetIndex--;
+                    }
+                    sourceIndex++;
+                }
+            } finally { candles.close(); }
+            // The query is newest-first; arrays are filled in reverse chronological order.
+            priceChart.setCandles(o, h, l, close, selectedSymbol + " · " +
+                    rangeLabel(selectedRangeMinutes) + " · " + plotted + " OHLC candles");
         }
         if (equityChart != null) {
             Cursor trades = db.rawQuery(
