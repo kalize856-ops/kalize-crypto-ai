@@ -8,6 +8,11 @@ A lightweight Android paper-trading research app. It is a simulator only: it doe
 - Newer Android versions are supported by the same APK.
 - Android 4.4 devices may have trouble connecting to modern HTTPS services because their TLS and certificate support is old. The app will not disable certificate checks to work around this.
 
+## Dashboard layout
+- Opens in landscape orientation for a wide trading-style workspace.
+- Uses two side-by-side columns on wider displays, with a single-column fallback on compact screens.
+- Market charts and virtual portfolio are grouped separately from AI diagnostics, paper-trade history and simulation controls.
+
 ## Current foundation
 - Local SQLite database.
 - $100 simulated starting wallet, initialized once and retained between launches.
