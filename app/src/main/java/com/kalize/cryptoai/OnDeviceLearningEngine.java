@@ -42,7 +42,7 @@ public final class OnDeviceLearningEngine {
         Model m=load(db,modelKey);
         Cursor c=db.rawQuery("SELECT open_time,close,high,low,volume FROM candles " +
                 "WHERE symbol=? AND interval=? AND open_time>? ORDER BY open_time ASC LIMIT "+MAX_CANDLES,
-                new String[]{symbol,interval,String.valueOf(m.lastCandleTime)}
+                new String[]{symbol,interval,String.valueOf(m.lastCandleTime)});
         long[] times=new long[MAX_CANDLES];
         double[] close=new double[MAX_CANDLES],high=new double[MAX_CANDLES],
                 low=new double[MAX_CANDLES],volume=new double[MAX_CANDLES];
@@ -90,7 +90,8 @@ public final class OnDeviceLearningEngine {
         if(n<7||m.samples<20)
             return new Assessment(symbol,"LEARNING",0,m.samples,
                     m.samples==0?0:100.0*m.correct/m.samples,0.5);
-        reverse(close);reverse(high);reverse(low);reverse(volume);\n        double p=probability(m,features(close,high,low,volume,6));
+        reverse(close);reverse(high);reverse(low);reverse(volume);
+        double p=probability(m,features(close,high,low,volume,6));
         String signal=p>0.58?"UPWARD BIAS":(p<0.42?"DOWNWARD BIAS":"NEUTRAL");
         return new Assessment(symbol,signal,Math.abs(p-0.5)*200,m.samples,
                 100.0*m.correct/m.samples,p);
