@@ -5,8 +5,8 @@ import android.database.sqlite.SQLiteDatabase;
 import java.util.ArrayList;
 
 /**
- * Opt-in automatic paper trader. All decisions and orders stay in the local
- * virtual ledger; this class has no exchange-account or order API.
+ * Mandatory autonomous paper trader. Decisions stay in the local virtual ledger;
+ * there is no user-facing manual mode or exchange-account order API.
  */
 public final class AutoPaperTradingController {
     private static final String SETTING = "auto_paper_trading";
@@ -25,11 +25,12 @@ public final class AutoPaperTradingController {
     }
 
     public synchronized boolean isEnabled() {
-        return "true".equals(database.getSetting(SETTING, "false"));
+        return !database.isVirtualCashDepleted();
     }
 
+    /** Automation is mandatory; callers cannot switch into manual trading mode. */
     public synchronized void setEnabled(boolean enabled) {
-        database.putSetting(SETTING, enabled ? "true" : "false");
+        database.putSetting(SETTING, "true");
     }
 
     /** Called only after a completed candle has been stored. */
@@ -65,15 +66,14 @@ public final class AutoPaperTradingController {
             stopReport.append(closed.success ? "Stop-loss executed: " : "Stop-loss error: ")
                     .append(closed.message);
         }
-        if (!isEnabled()) {
+        if (database.isVirtualCashDepleted()) {
             return stopReport.length() > 0 ? stopReport.toString() :
-                    "Automatic paper trading is off. Stop-loss monitoring remains active.";
+                    "Virtual cash depleted. Automatic entries are locked until the virtual account is reset.";
         }
         // Do not open a replacement position on the same candle that stopped one.
         if (stopReport.length() > 0) return stopReport.toString();
         if (database.isVirtualCashDepleted()) {
-            setEnabled(false);
-            return "Virtual cash depleted. Automatic paper trading has been paused; reset the simulation to restart.";
+            return "Virtual cash depleted. Automatic entries are locked until the virtual account is reset.";
         }
 
         OnDeviceLearningEngine.Assessment assessment = learner.assess(symbol, interval);
@@ -105,8 +105,7 @@ public final class AutoPaperTradingController {
 
         double cash = database.getCashBalance();
         if (cash <= 0.005) {
-            setEnabled(false);
-            return "Virtual cash depleted. Automatic paper trading has been paused.";
+            return "Virtual cash depleted. Automatic entries are locked until the virtual account is reset.";
         }
         double equity = cash + trading.getOpenEntryValue();
         double stop = marketPrice * (1.0 - STOP_DISTANCE);
