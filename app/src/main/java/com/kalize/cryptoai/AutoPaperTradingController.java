@@ -69,6 +69,8 @@ public final class AutoPaperTradingController {
             return stopReport.length() > 0 ? stopReport.toString() :
                     "Automatic paper trading is off. Stop-loss monitoring remains active.";
         }
+        // Do not open a replacement position on the same candle that stopped one.
+        if (stopReport.length() > 0) return stopReport.toString();
         if (database.isVirtualCashDepleted()) {
             setEnabled(false);
             return "Virtual cash depleted. Automatic paper trading has been paused; reset the simulation to restart.";
@@ -80,11 +82,9 @@ public final class AutoPaperTradingController {
                 "SELECT id, stop_loss FROM paper_trades WHERE symbol=? AND status='OPEN' AND ai_probability>=0 ORDER BY opened_at ASC LIMIT 1",
                 new String[]{symbol});
         long openId = -1L;
-        double stopLoss = 0.0;
         try {
             if (cursor.moveToFirst()) {
                 openId = cursor.getLong(0);
-                stopLoss = cursor.getDouble(1);
             }
         } finally {
             cursor.close();
