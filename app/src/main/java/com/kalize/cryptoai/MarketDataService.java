@@ -11,6 +11,20 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import okhttp3.OkHttpClient;
+import okhttp3.ConnectionSpec;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import java.io.IOException;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
@@ -84,11 +98,7 @@ public final class MarketDataService extends Service {
         database = new PaperDatabaseHelper(getApplicationContext());
         learner = new OnDeviceLearningEngine(database);
         autoTrader = new AutoPaperTradingController(database);
-        client = new OkHttpClient.Builder()
-                .pingInterval(20, TimeUnit.SECONDS)
-                .connectTimeout(20, TimeUnit.SECONDS)
-                .readTimeout(0, TimeUnit.MILLISECONDS)
-                .build();
+        client = buildCompatibleClient();
         createNotificationChannel();
         startHistoricalBackfill();
         handler.postDelayed(cleanupTask, CLEANUP_INTERVAL_MS);
@@ -163,6 +173,73 @@ public final class MarketDataService extends Service {
         });
     }
 
+    /**
+     * Android 4.4 devices may support TLS 1.2 but leave it disabled on default
+     * SSLSockets. Enable TLS 1.2 explicitly while retaining the platform trust
+     * store and OkHttp hostname verification.
+     */
+    private OkHttpClient buildCompatibleClient() {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                .pingInterval(20, TimeUnit.SECONDS)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(true)
+                .connectionSpecs(java.util.Collections.singletonList(ConnectionSpec.MODERN_TLS));
+        try {
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init((java.security.KeyStore) null);
+            TrustManager[] managers = tmf.getTrustManagers();
+            X509TrustManager trustManager = null;
+            for (TrustManager manager : managers) {
+                if (manager instanceof X509TrustManager) {
+                    trustManager = (X509TrustManager) manager;
+                    break;
+                }
+            }
+            if (trustManager != null) {
+                SSLContext context = SSLContext.getInstance("TLSv1.2");
+                context.init(null, new TrustManager[]{trustManager}, new SecureRandom());
+                builder.sslSocketFactory(new Tls12SocketFactory(context.getSocketFactory()), trustManager);
+            }
+        } catch (Exception compatibilityError) {
+            // Fall back to the platform TLS configuration; never bypass certificate checks.
+        }
+        return builder.build();
+    }
+
+    private static final class Tls12SocketFactory extends SSLSocketFactory {
+        private final SSLSocketFactory delegate;
+        Tls12SocketFactory(SSLSocketFactory delegate) { this.delegate = delegate; }
+
+        private Socket enableTls12(Socket socket) {
+            if (socket instanceof SSLSocket) {
+                SSLSocket ssl = (SSLSocket) socket;
+                java.util.List<String> supported = java.util.Arrays.asList(ssl.getSupportedProtocols());
+                if (supported.contains("TLSv1.2")) ssl.setEnabledProtocols(new String[]{"TLSv1.2"});
+            }
+            return socket;
+        }
+        @Override public String[] getDefaultCipherSuites() { return delegate.getDefaultCipherSuites(); }
+        @Override public String[] getSupportedCipherSuites() { return delegate.getSupportedCipherSuites(); }
+        @Override public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
+            return enableTls12(delegate.createSocket(s, host, port, autoClose));
+        }
+        @Override public Socket createSocket(String host, int port) throws IOException {
+            return enableTls12(delegate.createSocket(host, port));
+        }
+        @Override public Socket createSocket(String host, int port, InetAddress local, int localPort) throws IOException {
+            return enableTls12(delegate.createSocket(host, port, local, localPort));
+        }
+        @Override public Socket createSocket(InetAddress host, int port) throws IOException {
+            return enableTls12(delegate.createSocket(host, port));
+        }
+        @Override public Socket createSocket(InetAddress host, int port, InetAddress local, int localPort) throws IOException {
+            return enableTls12(delegate.createSocket(host, port, local, localPort));
+        }
+        @Override public Socket createSocket() throws IOException { return enableTls12(delegate.createSocket()); }
+    }
+
     /** Downloads up to 7 days of completed one-minute candles without blocking the feed. */
     private void startHistoricalBackfill() {
         if (stoppedByUser || (backfillThread != null && backfillThread.isAlive())) return;
@@ -225,7 +302,7 @@ public final class MarketDataService extends Service {
                         }
                     }
                     broadcast("7-day history ready · AI training caught up");
-                    updateNotification("30-day history ready · live feed active");
+                    updateNotification("7-day history ready · live feed active");
                 } catch (Exception error) {
                     broadcast("Historical backfill paused · will retry in 5 minutes · live feed remains active");
                     handler.removeCallbacks(backfillRetry);
