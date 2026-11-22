@@ -195,7 +195,9 @@ public final class OnDeviceLearningEngine {
         // Incremental training continues independently as each new completed candle arrives.
         reverse(close);reverse(high);reverse(low);reverse(volume);
         double p=probability(m,features(close,high,low,volume,6));
-        String signal=p>0.58?"UPWARD BIAS":(p<0.42?"DOWNWARD BIAS":"NEUTRAL");
+        // 5% confidence means a 5-point margin from a neutral 50/50 model output.
+        // This is an exploratory paper-trading threshold, not a proven 55% win rate.
+        String signal=p>=0.525?"UPWARD BIAS":(p<=0.475?"DOWNWARD BIAS":"NEUTRAL");
         return new Assessment(symbol,signal,Math.abs(p-0.5)*200,m.samples,
                 candleAccuracy,p,m.candleSamples,m.tradeSamples,tradeAccuracy);
     }
