@@ -647,7 +647,21 @@ public class MainActivity extends Activity {
                     .append("\\nGross simulated profit: ").append(money(grossProfit))
                     .append("\\nGross simulated loss: ").append(money(grossLoss))
                     .append("\\nProfit factor: ").append(profitFactor)
-                    .append("\\n\\nSTREAK ANALYSIS");
+                    .append("\\nProfit factor: ").append(profitFactor)
+                    .append("\\n\\nTRADE DURATION");
+            Cursor durations = db.rawQuery(
+                    "SELECT COALESCE(AVG(closed_at-opened_at),0)," +
+                    "COALESCE(MIN(closed_at-opened_at),0)," +
+                    "COALESCE(MAX(closed_at-opened_at),0) FROM paper_trades" + where,
+                    args);
+            try {
+                if (durations.moveToFirst()) {
+                    report.append("\\nAverage time open: ").append(formatDuration(durations.getLong(0)))
+                            .append("\\nShortest time open: ").append(formatDuration(durations.getLong(1)))
+                            .append("\\nLongest time open: ").append(formatDuration(durations.getLong(2)));
+                }
+            } finally { durations.close(); }
+            report.append("\\n\\nSTREAK ANALYSIS");
             Cursor streaks = db.rawQuery(
                     "SELECT realized_pnl FROM paper_trades" + where + " ORDER BY closed_at ASC,id ASC", args);
             int currentType = 0, currentLength = 0;
@@ -758,6 +772,17 @@ public class MainActivity extends Activity {
         String header = "Showing " + count + (count == 100 ? " (latest 100)" : "") +
                 " · Filter: " + historyFilter;
         return header + "\n\n" + b.toString();
+    }
+
+    private String formatDuration(long durationMs) {
+        if (durationMs < 0L) durationMs = 0L;
+        long totalMinutes = durationMs / 60000L;
+        long days = totalMinutes / 1440L;
+        long hours = (totalMinutes % 1440L) / 60L;
+        long minutes = totalMinutes % 60L;
+        if (days > 0L) return days + "d " + hours + "h";
+        if (hours > 0L) return hours + "h " + minutes + "m";
+        return minutes + "m";
     }
 
     private double readPositiveSetting(String key, double fallback) {
