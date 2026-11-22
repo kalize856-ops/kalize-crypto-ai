@@ -87,7 +87,7 @@ public final class OnDeviceLearningEngine {
             int predicted=p>=0.5?1:0;
             if(predicted==label) correct++;
             double confidence=Math.max(p,1.0-p);
-            int bucket=Math.min(4,(int)(confidence*5.0));
+            int bucket=Math.min(4,Math.max(0,(int)Math.floor((confidence-0.5)*10.0+1.0e-9)));
             bucketCounts[bucket]++;
             bucketConfidenceTotals[bucket]+=confidence;
             if(predicted==label) bucketCorrectTotals[bucket]++;
