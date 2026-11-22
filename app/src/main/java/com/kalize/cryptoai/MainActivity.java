@@ -26,6 +26,8 @@ public class MainActivity extends Activity {
     private AutoPaperTradingController autoTrader;
     private TextView marketStatus, portfolioPanel, modelPanel, openTradesPanel, historyPanel;
     private Button autoButton;
+    private SimpleLineChartView priceChart, equityChart;
+    private String selectedSymbol = "BTCUSDT";
     private boolean receiverRegistered = false;
 
     private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
@@ -72,6 +74,23 @@ public class MainActivity extends Activity {
         marketStatus = addPanel("LIVE MARKET WATCH",
                 "Starting persistent WebSocket connection…\nBTC / USDT    waiting\n" +
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
+        addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
+        addText("Choose a pair, then touch or drag across the chart to inspect closing prices.", 12, Color.LTGRAY, false);
+        addPairSelector();
+        priceChart = new SimpleLineChartView(this);
+        priceChart.setBackgroundColor(Color.rgb(27, 39, 54));
+        content.addView(priceChart, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(220)));
+        addSpace(14);
+
+        addText("SIMULATED PERFORMANCE", 12, Color.rgb(22, 192, 140), true);
+        addText("Cumulative realized results from closed paper trades; not a return forecast.", 12, Color.LTGRAY, false);
+        equityChart = new SimpleLineChartView(this);
+        equityChart.setBackgroundColor(Color.rgb(27, 39, 54));
+        content.addView(equityChart, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(190)));
+        addSpace(14);
+
         modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");
         openTradesPanel = addPanel("OPEN SIMULATED POSITIONS", "No open positions.");
         historyPanel = addPanel("RECENT PAPER-TRADE HISTORY", "No closed trades yet.");
@@ -109,7 +128,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.1.6 · Android 4.4.4+ · Binance public data · Local SQLite",
+        addText("Build 0.1.8 · Android 4.4.4+ · Binance public data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -157,9 +176,70 @@ public class MainActivity extends Activity {
                 "\nStarting virtual balance    $100.00");
 
         openTradesPanel.setText(open.toString());
+        refreshCharts(db);
         historyPanel.setText(loadHistory(db));
         modelPanel.setText(loadModels());
         if (autoButton != null) updateAutoButton();
+    }
+
+
+    private void addPairSelector() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+        for (final String symbol : symbols) {
+            Button button = new Button(this);
+            button.setText(symbol.replace("USDT", "/USDT"));
+            button.setTextSize(10);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View view) {
+                    selectedSymbol = symbol;
+                    refreshDashboard();
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(46), 1.0f);
+            params.setMargins(dp(2), dp(4), dp(2), dp(8));
+            row.addView(button, params);
+        }
+        content.addView(row);
+    }
+
+    private void refreshCharts(SQLiteDatabase db) {
+        if (priceChart != null) {
+            Cursor prices = db.rawQuery(
+                    "SELECT close FROM candles WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 60",
+                    new String[]{selectedSymbol});
+            double[] values = new double[prices.getCount()];
+            try {
+                int index = values.length - 1;
+                while (prices.moveToNext() && index >= 0) values[index--] = prices.getDouble(0);
+            } finally { prices.close(); }
+            priceChart.setSeries(values, selectedSymbol + " · last " + values.length +
+                    " completed 1-minute closes", Color.rgb(22, 192, 140));
+        }
+        if (equityChart != null) {
+            Cursor trades = db.rawQuery(
+                    "SELECT realized_pnl FROM (SELECT realized_pnl,closed_at FROM paper_trades " +
+                    "WHERE status='CLOSED' ORDER BY closed_at DESC LIMIT 50) ORDER BY closed_at ASC",
+                    null);
+            double[] values = new double[trades.getCount() + 1];
+            double equity = 100.0;
+            values[0] = equity;
+            int index = 1;
+            try {
+                while (trades.moveToNext() && index < values.length) {
+                    equity += trades.getDouble(0);
+                    values[index++] = equity;
+                }
+            } finally { trades.close(); }
+            if (index < values.length) {
+                double[] compact = new double[index];
+                System.arraycopy(values, 0, compact, 0, index);
+                values = compact;
+            }
+            equityChart.setSeries(values, "Virtual equity after closed trades · starting balance $100",
+                    Color.rgb(93, 160, 255));
+        }
     }
 
     private String loadModels() {
