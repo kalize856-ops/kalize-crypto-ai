@@ -154,6 +154,23 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         finally { cursor.close(); }
     }
 
+    public String getSetting(String key, String defaultValue) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT setting_value FROM app_settings WHERE setting_key=?",
+                new String[]{key});
+        try { return cursor.moveToFirst() ? cursor.getString(0) : defaultValue; }
+        finally { cursor.close(); }
+    }
+
+    public void putSetting(String key, String value) {
+        if (key == null || value == null) return;
+        ContentValues values = new ContentValues();
+        values.put("setting_key", key);
+        values.put("setting_value", value);
+        getWritableDatabase().insertWithOnConflict(
+                "app_settings", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
     public void closeStore() { close(); }
 
     private boolean valid(double value) {
