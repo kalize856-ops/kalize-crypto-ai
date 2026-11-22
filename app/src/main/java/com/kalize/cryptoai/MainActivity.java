@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.DatabaseUtils;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
@@ -18,6 +19,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import java.util.Locale;
 import java.util.ArrayList;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import android.widget.Toast;
 
 /** Responsive-by-width paper dashboard; API 19+ and simulation only. */
 public class MainActivity extends Activity {
@@ -36,6 +42,7 @@ public class MainActivity extends Activity {
     private boolean receiverRegistered = false;
     private String historyFilter = "ALL";
     private int performanceRangeDays = 0;
+    private static final int REQUEST_EXPORT_JOURNAL = 513;
 
     private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -570,6 +577,19 @@ public class MainActivity extends Activity {
             row.addView(button, params);
         }
         content.addView(row);
+        Button exportButton = new Button(this);
+        exportButton.setText("Export journal as CSV");
+        exportButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("text/csv");
+                intent.putExtra(Intent.EXTRA_TITLE, "kalize-paper-trade-journal.csv");
+                startActivityForResult(intent, REQUEST_EXPORT_JOURNAL);
+            }
+        });
+        content.addView(exportButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)));
     }
 
     private void addPerformanceRangeSelector() {
@@ -733,6 +753,59 @@ public class MainActivity extends Activity {
             report.append("\\n\\nStatistics use closed virtual trades in the selected period and recorded net P/L after simulated costs. Historical summaries are not predictions.");
             return report.toString();
         } finally { c.close(); }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_EXPORT_JOURNAL && resultCode == RESULT_OK &&
+                data != null && data.getData() != null) {
+            exportTradeJournal(data.getData());
+        }
+    }
+
+    private void exportTradeJournal(android.net.Uri uri) {
+        Cursor cursor = database.getReadableDatabase().rawQuery(
+                "SELECT id,symbol,side,quantity,entry_price,exit_price,stop_loss," +
+                "realized_pnl,fees,status,opened_at,closed_at,ai_probability,ai_interval " +
+                "FROM paper_trades" +
+                ("ALL".equals(historyFilter) ? "" : " WHERE status=?") +
+                " ORDER BY opened_at DESC",
+                "ALL".equals(historyFilter) ? null : new String[]{historyFilter});
+        OutputStream output = null;
+        BufferedWriter writer = null;
+        try {
+            output = getContentResolver().openOutputStream(uri);
+            if (output == null) throw new IOException("Unable to open selected file");
+            writer = new BufferedWriter(new OutputStreamWriter(output, "UTF-8"));
+            writer.write("trade_id,symbol,side,quantity,entry_price,exit_price,stop_loss,realized_pnl,fees,status,opened_at_utc,closed_at_utc,ai_probability,ai_interval");
+            writer.newLine();
+            while (cursor.moveToNext()) {
+                StringBuilder line = new StringBuilder();
+                for (int i = 0; i < cursor.getColumnCount(); i++) {
+                    if (i > 0) line.append(',');
+                    String value = cursor.isNull(i) ? "" : cursor.getString(i);
+                    line.append(csvCell(value));
+                }
+                writer.write(line.toString());
+                writer.newLine();
+            }
+            writer.flush();
+            Toast.makeText(this, "Paper-trade journal exported", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "Export failed: " + error.getMessage(), Toast.LENGTH_LONG).show();
+        } finally {
+            cursor.close();
+            if (writer != null) {
+                try { writer.close(); } catch (IOException ignored) { }
+            } else if (output != null) {
+                try { output.close(); } catch (IOException ignored) { }
+            }
+        }
+    }
+
+    private String csvCell(String value) {
+        if (value == null) return "";
+        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
     private String loadHistory(SQLiteDatabase db) {
