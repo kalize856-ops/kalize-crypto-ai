@@ -2,6 +2,11 @@ package com.kalize.cryptoai;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.content.BroadcastReceiver;
@@ -41,6 +46,8 @@ public class MainActivity extends Activity {
     private String historyFilter = "ALL";
     private int performanceRangeDays = 0;
     private static final int REQUEST_EXPORT_JOURNAL = 513;
+    private static final int REQUEST_POST_NOTIFICATIONS = 514;
+    private static final String PRACTICE_NOTIFICATION_CHANNEL = "kalize_practice_events";
 
     private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -65,6 +72,7 @@ public class MainActivity extends Activity {
         tradingEngine = new PaperTradingEngine(database);
         learningEngine = new OnDeviceLearningEngine(database);
         autoTrader = new AutoPaperTradingController(database);
+        preparePracticeNotifications();
         database.cleanExpiredCandles();
         MarketStreamStarter.start(this);
 
@@ -77,7 +85,7 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         int widthDp = (int)(getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        boolean wideDashboard = widthDp >= 700;
+        boolean wideDashboard = widthDp >= 840;
 
         LinearLayout dashboardRoot = new LinearLayout(this);
         dashboardRoot.setOrientation(wideDashboard
@@ -138,7 +146,14 @@ public class MainActivity extends Activity {
         priceChart = new CandlestickChartView(this);
         priceChart.setBackgroundColor(Color.rgb(27, 39, 54));
         content.addView(priceChart, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(220)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(wideDashboard ? 300 : 245)));
+        Button resetChartView = new Button(this);
+        resetChartView.setText("Reset chart zoom and position");
+        resetChartView.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) { priceChart.resetView(); }
+        });
+        content.addView(resetChartView, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         addSpace(14);
 
         addText("VIRTUAL ACCOUNT HISTORY", 12, Color.rgb(22, 192, 140), true);
@@ -146,7 +161,7 @@ public class MainActivity extends Activity {
         equityChart = new SimpleLineChartView(this);
         equityChart.setBackgroundColor(Color.rgb(27, 39, 54));
         content.addView(equityChart, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(190)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(wideDashboard ? 230 : 190)));
         addSpace(14);
 
         if (wideDashboard) {
@@ -188,6 +203,7 @@ public class MainActivity extends Activity {
                         .setPositiveButton("Start over", new android.content.DialogInterface.OnClickListener() {
                             @Override public void onClick(android.content.DialogInterface dialog, int which) {
                                 database.resetPaperSimulation();
+                                database.putSetting("cash_depleted_notified", "0");
                                 refreshDashboard();
                             }
                         }).show();
@@ -209,6 +225,87 @@ public class MainActivity extends Activity {
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
+    }
+
+
+    private void preparePracticeNotifications() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel channel = new NotificationChannel(
+                    PRACTICE_NOTIFICATION_CHANNEL,
+                    "Practice trading updates",
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription("Notifications about virtual practice trades and account status.");
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQUEST_POST_NOTIFICATIONS);
+        }
+    }
+
+    private void checkForPracticeNotifications(boolean cashDepleted) {
+        if (database == null) return;
+        if (cashDepleted) {
+            if (!"1".equals(database.getSetting("cash_depleted_notified", "0"))) {
+                postPracticeNotification(4202, "Virtual practice balance depleted",
+                        "The practice bot has paused opening new positions. Start over to reset the virtual account.");
+                database.putSetting("cash_depleted_notified", "1");
+            }
+        }
+
+        Cursor latest = database.getReadableDatabase().rawQuery(
+                "SELECT id,symbol,status,realized_pnl FROM paper_trades " +
+                "ORDER BY CASE WHEN status='CLOSED' THEN COALESCE(closed_at,opened_at) ELSE opened_at END DESC, id DESC LIMIT 1",
+                null);
+        String eventKey = "none";
+        String title = null;
+        String message = null;
+        try {
+            if (latest.moveToFirst()) {
+                long id = latest.getLong(0);
+                String symbol = latest.getString(1).replace("USDT", "/USDT");
+                String status = latest.getString(2);
+                eventKey = id + "-" + status;
+                if ("OPEN".equals(status)) {
+                    title = "New virtual practice trade";
+                    message = "The automatic practice bot opened a " + symbol + " position. No real money was used.";
+                } else if ("CLOSED".equals(status)) {
+                    double result = latest.getDouble(3);
+                    title = "Virtual practice trade finished";
+                    message = symbol + " result: " + money(result) + ". This was a simulated trade.";
+                }
+            }
+        } finally { latest.close(); }
+
+        String previous = database.getSetting("last_practice_notification_event", "");
+        if (previous.length() == 0) {
+            database.putSetting("last_practice_notification_event", eventKey);
+        } else if (!previous.equals(eventKey)) {
+            database.putSetting("last_practice_notification_event", eventKey);
+            if (title != null) postPracticeNotification(4201, title, message);
+        }
+    }
+
+    private void postPracticeNotification(int id, String title, String message) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return;
+        Intent openApp = new Intent(this, MainActivity.class);
+        openApp.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= 23) pendingFlags |= PendingIntent.FLAG_IMMUTABLE;
+        PendingIntent pending = PendingIntent.getActivity(this, id, openApp, pendingFlags);
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+                ? new Notification.Builder(this, PRACTICE_NOTIFICATION_CHANNEL)
+                : new Notification.Builder(this);
+        builder.setSmallIcon(android.R.drawable.stat_notify_more)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(new Notification.BigTextStyle().bigText(message))
+                .setContentIntent(pending)
+                .setAutoCancel(true);
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) manager.notify(id, builder.build());
     }
 
     private void updateQuotePanel(String quote) {
@@ -287,6 +384,7 @@ public class MainActivity extends Activity {
         double drawdownPercent = equityPeak > 0.0 ? (drawdown / equityPeak) * 100.0 : 0.0;
         boolean cashDepleted = cash <= 0.005;
         if (cashDepleted && autoTrader.isEnabled()) autoTrader.setEnabled(false);
+        checkForPracticeNotifications(cashDepleted);
         portfolioPanel.setText((cashDepleted ? "VIRTUAL CASH DEPLETED · NEW TRADES PAUSED\n" : "") +
                 "Total virtual equity    " + money(equity) +
                 "\nVirtual cash    " + money(cash) +
