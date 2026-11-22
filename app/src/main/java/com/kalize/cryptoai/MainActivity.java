@@ -199,7 +199,7 @@ public class MainActivity extends Activity {
         addHistoryFilterSelector();
 
         addPanel("SAVED MARKET HISTORY",
-                "Learning window: 30 days\nStored candles: " + database.getStoredCandleCount() +
+                "Learning window: 7 days\nStored candles: " + database.getStoredCandleCount() +
                 "\nExpired candles: automatically cleaned");
         addPanel("SAFETY LIMITS",
                 "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\n" +
@@ -583,8 +583,8 @@ public class MainActivity extends Activity {
     private void addRangeSelector() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        final int[] ranges = new int[]{60, 360, 1440, 10080, 43200};
-        final String[] labels = new String[]{"1H", "6H", "24H", "7D", "30D"};
+        final int[] ranges = new int[]{60, 360, 1440, 10080};
+        final String[] labels = new String[]{"1H", "6H", "24H", "7D"};
         for (int i = 0; i < ranges.length; i++) {
             final int range = ranges[i];
             Button button = new Button(this);
@@ -609,7 +609,7 @@ public class MainActivity extends Activity {
         if (minutes == 360) return "6 hours";
         if (minutes == 1440) return "24 hours";
         if (minutes == 10080) return "7 days";
-        return "30 days";
+        return "7 days";
     }
 
     private String intervalLabel(int minutes) {
