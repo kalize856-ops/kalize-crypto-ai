@@ -61,6 +61,7 @@ public final class PaperTradingEngine {
             double dailyPnl=scalar(db,"SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED' AND closed_at >= "+
                     (System.currentTimeMillis()-(System.currentTimeMillis()%86400000L)));
             double startingBalance=scalar(db,"SELECT starting_balance FROM wallet WHERE id=1");
+            if(cash<=0.005) return fail("Virtual cash is depleted. Reset the simulation to start a new paper account.");
             if(dailyPnl<=-(startingBalance*DAILY_LOSS_LIMIT))
                 return fail("Daily simulated loss limit reached. New positions are paused until tomorrow.");
             double equity=cash+scalar(db,"SELECT COALESCE(SUM(quantity*entry_price),0) FROM paper_trades WHERE status='OPEN'");
@@ -71,7 +72,7 @@ public final class PaperTradingEngine {
             if(notional>equity*MAX_POSITION_VALUE) return fail("Position exceeds the 25% simulated portfolio-size limit.");
             if(quantity*(execution-stopLoss)>equity*MAX_RISK_PER_TRADE)
                 return fail("Estimated stop-loss risk exceeds 1% of simulated portfolio equity.");
-            if(notional+fee>cash) return fail("Insufficient virtual cash.");
+            if(notional+fee>cash) return fail("Insufficient virtual cash. Close an open position or reset the simulation.");
             ContentValues wallet=new ContentValues();
             wallet.put("cash_balance",cash-notional-fee); wallet.put("updated_at",System.currentTimeMillis());
             db.update("wallet",wallet,"id=1",null);
@@ -112,7 +113,8 @@ public final class PaperTradingEngine {
             double gross=qty*exit, exitFee=gross*FEE_RATE;
             pnl=(gross-exitFee)-(qty*entry+entryFee);
             ContentValues wallet=new ContentValues();
-            wallet.put("cash_balance",scalar(db,"SELECT cash_balance FROM wallet WHERE id=1")+gross-exitFee);
+            double availableCash=scalar(db,"SELECT cash_balance FROM wallet WHERE id=1");
+            wallet.put("cash_balance",Math.max(0.0,availableCash+gross-exitFee));
             wallet.put("updated_at",System.currentTimeMillis());
             db.update("wallet",wallet,"id=1",null);
             ContentValues trade=new ContentValues();
