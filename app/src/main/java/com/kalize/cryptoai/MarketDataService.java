@@ -31,7 +31,7 @@ public final class MarketDataService extends Service {
     private static final String CHANNEL_ID = "kalize_market_stream";
     private static final int NOTIFICATION_ID = 4101;
     private static final String STREAM_URL =
-            "wss://stream.binance.com:9443/stream?streams=" +
+            "wss://stream.binance.com:443/stream?streams=" +
             "btcusdt@kline_1m/ethusdt@kline_1m/solusdt@kline_1m/" +
             "btcusdt@ticker/ethusdt@ticker/solusdt@ticker";
 
@@ -151,7 +151,12 @@ public final class MarketDataService extends Service {
                 if (socket == webSocket) {
                     socket = null;
                     connecting = false;
-                    broadcast("Connection lost · reconnecting");
+                    String detail = error == null ? "Unknown network error" :
+                            error.getClass().getSimpleName() +
+                            (error.getMessage() == null ? "" : ": " + error.getMessage());
+                    if (response != null) detail += " · HTTP " + response.code();
+                    broadcast("Market connection failed · " + detail + " · reconnecting");
+                    updateNotification("Connection failed · retrying");
                     scheduleReconnect();
                 }
             }

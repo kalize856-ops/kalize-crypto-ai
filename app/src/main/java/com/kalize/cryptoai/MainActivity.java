@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
     private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, decisionJournalPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
-    private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity;
+    private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity, profitBubbleTrades, profitBubbleLatest;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
@@ -120,14 +120,14 @@ public class MainActivity extends Activity {
         }
         scroll.addView(dashboardRoot);
         scroll.setClipToPadding(false);
-        scroll.setPadding(0, 0, 0, dp(118));
+        scroll.setPadding(0, 0, 0, dp(146));
 
         FrameLayout screenRoot = new FrameLayout(this);
         screenRoot.addView(scroll, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         View profitBubble = createProfitBubble();
         FrameLayout.LayoutParams profitBubbleParams = new FrameLayout.LayoutParams(
-                dp(184), dp(98), Gravity.BOTTOM | Gravity.RIGHT);
+                dp(190), dp(126), Gravity.BOTTOM | Gravity.RIGHT);
         profitBubbleParams.setMargins(dp(12), dp(12), dp(14), dp(16));
         screenRoot.addView(profitBubble, profitBubbleParams);
 
@@ -281,13 +281,30 @@ public class MainActivity extends Activity {
         profitBubbleEquity.setSingleLine(true);
         card.addView(profitBubbleEquity, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(18)));
+
+        profitBubbleTrades = new TextView(this);
+        profitBubbleTrades.setText("0 completed · 0 open");
+        profitBubbleTrades.setTextColor(Color.rgb(226, 234, 244));
+        profitBubbleTrades.setTextSize(10);
+        profitBubbleTrades.setSingleLine(true);
+        card.addView(profitBubbleTrades, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(16)));
+
+        profitBubbleLatest = new TextView(this);
+        profitBubbleLatest.setText("Last: no trades yet");
+        profitBubbleLatest.setTextColor(Color.rgb(177, 190, 207));
+        profitBubbleLatest.setTextSize(9);
+        profitBubbleLatest.setSingleLine(true);
+        card.addView(profitBubbleLatest, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(16)));
         return card;
     }
 
     /** Shows net simulated account result, including open-position value changes. */
     private void updateProfitBubble(double equity) {
         if (profitBubbleValue == null || profitBubbleLabel == null ||
-                profitBubbleEquity == null) return;
+                profitBubbleEquity == null || profitBubbleTrades == null ||
+                profitBubbleLatest == null) return;
         double profit = equity - 100.0;
         boolean positive = profit >= 0.0;
         profitBubbleLabel.setText(positive ? "TOTAL PROFIT" : "TOTAL LOSS");
@@ -295,6 +312,33 @@ public class MainActivity extends Activity {
         profitBubbleValue.setTextColor(positive
                 ? Color.rgb(55, 222, 153) : Color.rgb(255, 104, 112));
         profitBubbleEquity.setText("Account " + money(equity));
+
+        Cursor counts = database.getReadableDatabase().rawQuery(
+                "SELECT COALESCE(SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN status='OPEN' THEN 1 ELSE 0 END),0) FROM paper_trades", null);
+        try {
+            if (counts.moveToFirst()) {
+                profitBubbleTrades.setText(counts.getInt(0) + " completed · " +
+                        counts.getInt(1) + " open");
+            }
+        } finally { counts.close(); }
+
+        Cursor latest = database.getReadableDatabase().rawQuery(
+                "SELECT symbol,side,status,COALESCE(closed_at,opened_at) " +
+                "FROM paper_trades ORDER BY COALESCE(closed_at,opened_at) DESC,id DESC LIMIT 1", null);
+        try {
+            if (latest.moveToFirst()) {
+                String symbol = latest.getString(0).replace("USDT", "/USDT");
+                String side = latest.getString(1);
+                boolean open = "OPEN".equals(latest.getString(2));
+                java.text.SimpleDateFormat time = new java.text.SimpleDateFormat("HH:mm", Locale.US);
+                String when = time.format(new java.util.Date(latest.getLong(3)));
+                profitBubbleLatest.setText("Last: " + symbol + " " + side + " · " +
+                        (open ? "OPEN" : "DONE") + " " + when);
+            } else {
+                profitBubbleLatest.setText("Last: no trades yet");
+            }
+        } finally { latest.close(); }
     }
 
     private void preparePracticeNotifications() {
