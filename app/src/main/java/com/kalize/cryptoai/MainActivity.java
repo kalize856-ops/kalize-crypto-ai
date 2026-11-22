@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, portfolioPanel, modelPanel, openTradesPanel, historyPanel;
+    private TextView marketStatus, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel;
     private Button autoButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(190)));
         addSpace(14);
 
-        modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");
+        modelPanel = addPanel("AI LEARNING & DECISION EXPLANATIONS", "Loading local model…");\n        learningReportPanel = addPanel("AI MODEL PERFORMANCE REPORT", "Collecting learning statistics…");
         openTradesPanel = addPanel("OPEN SIMULATED POSITIONS", "No open positions.");
         historyPanel = addPanel("RECENT PAPER-TRADE HISTORY", "No closed trades yet.");
 
@@ -131,7 +131,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.1.9 · Android 4.4.4+ · Binance public data · Local SQLite",
+        addText("Build 0.2.0 · Android 4.4.4+ · Binance public data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -316,6 +316,50 @@ public class MainActivity extends Activity {
             else result.append("\nExplanation: the model does not currently see a strong directional edge.");
         }
         return result.toString();
+    }
+
+    /**
+     * Reports training-set statistics and outcomes from AI-tagged paper trades.
+     * These are historical diagnostics, not out-of-sample performance guarantees.
+     */
+    private String loadLearningReport(SQLiteDatabase db) {
+        String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+        StringBuilder report = new StringBuilder();
+        for (int i = 0; i < symbols.length; i++) {
+            String symbol = symbols[i];
+            OnDeviceLearningEngine.Assessment a = learningEngine.assess(symbol, "1m");
+            Cursor trades = db.rawQuery(
+                    "SELECT COUNT(*), COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0), " +
+                    "COALESCE(SUM(realized_pnl),0), COALESCE(AVG(realized_pnl),0) " +
+                    "FROM paper_trades WHERE symbol=? AND status='CLOSED'",
+                    new String[]{symbol});
+            int totalTrades = 0, winningTrades = 0;
+            double netPnl = 0, averagePnl = 0;
+            try {
+                if (trades.moveToFirst()) {
+                    totalTrades = trades.getInt(0);
+                    winningTrades = trades.getInt(1);
+                    netPnl = trades.getDouble(2);
+                    averagePnl = trades.getDouble(3);
+                }
+            } finally { trades.close(); }
+            if (i > 0) report.append("\\n\\n");
+            report.append(symbol)
+                    .append("\\nCandle examples learned: ").append(a.candleSamples)
+                    .append("\\nTraining-set directional accuracy: ")
+                    .append(a.candleSamples == 0 ? "Not available" :
+                            String.format(Locale.US, "%.1f%%", a.accuracy))
+                    .append("\\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
+                    .append("\\nAI paper-outcome accuracy: ")
+                    .append(a.tradeSamples == 0 ? "Not available" :
+                            String.format(Locale.US, "%.1f%%", a.tradeAccuracy))
+                    .append("\\nAll closed paper trades: ").append(totalTrades)
+                    .append(" · Wins: ").append(winningTrades)
+                    .append("\\nPaper-trade net P/L: ").append(money(netPnl))
+                    .append(" · Average: ").append(money(averagePnl));
+        }
+        report.append("\\n\\nAccuracy figures are retrospective training diagnostics. They are not independently tested forecasts and do not guarantee future results.");
+        return report.toString();
     }
 
     private String loadHistory(SQLiteDatabase db) {
