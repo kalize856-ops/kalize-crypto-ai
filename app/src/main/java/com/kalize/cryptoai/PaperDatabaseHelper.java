@@ -6,13 +6,10 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-/**
- * Small local store designed for Android 4.4+.
- * This database is exclusively for simulation; it never places exchange orders.
- */
+/** Small local store designed for Android 4.4+; simulation data only. */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 3;
+    private static final int DB_VERSION = 4;
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long CANDLE_WINDOW_MS = 30L * DAY_MS;
 
@@ -36,20 +33,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 "starting_balance REAL NOT NULL," +
                 "cash_balance REAL NOT NULL," +
                 "updated_at INTEGER NOT NULL)");
-        db.execSQL("CREATE TABLE paper_trades (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "symbol TEXT NOT NULL," +
-                "side TEXT NOT NULL," +
-                "quantity REAL NOT NULL," +
-                "entry_price REAL NOT NULL," +
-                "exit_price REAL," +
-                "fees REAL NOT NULL DEFAULT 0," +
-                "realized_pnl REAL NOT NULL DEFAULT 0," +
-                "status TEXT NOT NULL," +
-                "opened_at INTEGER NOT NULL," +
-                "closed_at INTEGER," +
-                "stop_loss REAL NOT NULL DEFAULT 0)");
-        db.execSQL("CREATE INDEX paper_trades_status_idx ON paper_trades(status)");
+        createTradesTable(db);
         createLearningTable(db);
         db.execSQL("CREATE TABLE app_settings (" +
                 "setting_key TEXT PRIMARY KEY," +
@@ -72,7 +56,30 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("ALTER TABLE paper_trades ADD COLUMN stop_loss REAL NOT NULL DEFAULT 0");
         }
         if (oldVersion < 3) createLearningTable(db);
-        // Migrations preserve the virtual wallet, candle history and all trades.
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE paper_trades ADD COLUMN ai_probability REAL NOT NULL DEFAULT -1");
+            db.execSQL("ALTER TABLE paper_trades ADD COLUMN ai_interval TEXT");
+        }
+        // Existing virtual balances, candles and trades are preserved.
+    }
+
+    private void createTradesTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE paper_trades (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "symbol TEXT NOT NULL," +
+                "side TEXT NOT NULL," +
+                "quantity REAL NOT NULL," +
+                "entry_price REAL NOT NULL," +
+                "exit_price REAL," +
+                "fees REAL NOT NULL DEFAULT 0," +
+                "realized_pnl REAL NOT NULL DEFAULT 0," +
+                "status TEXT NOT NULL," +
+                "opened_at INTEGER NOT NULL," +
+                "closed_at INTEGER," +
+                "stop_loss REAL NOT NULL DEFAULT 0," +
+                "ai_probability REAL NOT NULL DEFAULT -1," +
+                "ai_interval TEXT)");
+        db.execSQL("CREATE INDEX paper_trades_status_idx ON paper_trades(status)");
     }
 
     private void createLearningTable(SQLiteDatabase db) {
@@ -84,24 +91,17 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     }
 
     public double getCashBalance() {
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT cash_balance FROM wallet WHERE id = 1", null);
-        try {
-            return cursor.moveToFirst() ? cursor.getDouble(0) : 100.0;
-        } finally {
-            cursor.close();
-        }
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT cash_balance FROM wallet WHERE id = 1", null);
+        try { return cursor.moveToFirst() ? cursor.getDouble(0) : 100.0; }
+        finally { cursor.close(); }
     }
 
     public int getClosedTradeCount() {
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.rawQuery(
+        Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT COUNT(*) FROM paper_trades WHERE status = 'CLOSED'", null);
-        try {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-        } finally {
-            cursor.close();
-        }
+        try { return cursor.moveToFirst() ? cursor.getInt(0) : 0; }
+        finally { cursor.close(); }
     }
 
     public boolean saveCandle(String symbol, String interval, long openTime,
@@ -112,7 +112,6 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 !valid(high) || !valid(low) || !valid(close) || !valid(volume) ||
                 high < low || high < open || high < close || low > open || low > close ||
                 volume < 0) return false;
-
         ContentValues values = new ContentValues();
         values.put("symbol", symbol);
         values.put("interval", interval);
@@ -135,18 +134,12 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     }
 
     public int getStoredCandleCount() {
-        Cursor cursor = getReadableDatabase().rawQuery(
-                "SELECT COUNT(*) FROM candles", null);
-        try {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-        } finally {
-            cursor.close();
-        }
+        Cursor cursor = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM candles", null);
+        try { return cursor.moveToFirst() ? cursor.getInt(0) : 0; }
+        finally { cursor.close(); }
     }
 
-    public void closeStore() {
-        close();
-    }
+    public void closeStore() { close(); }
 
     private boolean valid(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
