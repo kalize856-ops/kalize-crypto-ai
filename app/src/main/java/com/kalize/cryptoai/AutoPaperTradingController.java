@@ -116,6 +116,9 @@ public final class AutoPaperTradingController {
                 assessment.confidence < MIN_CONFIDENCE) {
             return "No simulated entry: AI signal or confidence threshold not met.";
         }
+        if (!hasShortTermPriceConfirmation(symbol, interval)) {
+            return "Entry paused: the recent candles do not yet confirm the AI signal.";
+        }
 
         double cash = database.getCashBalance();
         if (cash <= 0.005) {
@@ -133,6 +136,37 @@ public final class AutoPaperTradingController {
         PaperTradingEngine.Result opened =
                 trading.buyWithAiSignal(symbol, interval, quantity, marketPrice, stop);
         return (stopReport.length() > 0 ? stopReport.toString() + "\n" : "") + opened.message;
+    }
+
+    /**
+     * Requires at least two rising moves among the latest three completed
+     * candle-to-candle changes, and rejects a sharp immediate pullback.
+     * This is a confirmation gate, not a prediction.
+     */
+    private boolean hasShortTermPriceConfirmation(String symbol, String interval) {
+        SQLiteDatabase db = database.getReadableDatabase();
+        Cursor cursor = db.rawQuery(
+                "SELECT close FROM candles WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 4",
+                new String[]{symbol, interval});
+        double[] closes = new double[4];
+        int count = 0;
+        try {
+            while (cursor.moveToNext() && count < closes.length) {
+                closes[count++] = cursor.getDouble(0);
+            }
+        } finally {
+            cursor.close();
+        }
+        if (count < 4) return false;
+
+        int risingMoves = 0;
+        for (int i = 0; i < 3; i++) {
+            if (!finitePositive(closes[i]) || !finitePositive(closes[i + 1])) return false;
+            if (closes[i] > closes[i + 1]) risingMoves++;
+        }
+        // Do not enter if the newest close has sharply reversed against the prior close.
+        double latestPullback = (closes[1] - closes[0]) / closes[1];
+        return risingMoves >= 2 && latestPullback <= 0.002;
     }
 
     private boolean hasHealthyRecentCandles(String symbol, String interval) {
