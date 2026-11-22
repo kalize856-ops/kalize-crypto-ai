@@ -149,7 +149,7 @@ public final class MarketDataService extends Service {
                                 for (int i = 0; i < rows.length(); i++) {
                                     org.json.JSONArray row = rows.getJSONArray(i);
                                     long openTime = row.getLong(0);
-                                    if (openTime <= 0) continue;
+                                    if (openTime <= 0 || row.getLong(6) >= System.currentTimeMillis()) continue;
                                     database.saveCandle(symbol, "1m", openTime,
                                             row.getDouble(1), row.getDouble(2),
                                             row.getDouble(3), row.getDouble(4), row.getDouble(5));
