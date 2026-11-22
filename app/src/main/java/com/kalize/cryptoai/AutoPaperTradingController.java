@@ -11,7 +11,7 @@ import java.util.ArrayList;
 public final class AutoPaperTradingController {
     private static final String SETTING = "auto_paper_trading";
     private static final double STOP_DISTANCE = 0.02;
-    private static final double MIN_CONFIDENCE = 16.0;
+    private static final double MIN_CONFIDENCE = 5.0;
     private static final long REENTRY_COOLDOWN_MS = 5L * 60L * 1000L;
 
     private final PaperDatabaseHelper database;
