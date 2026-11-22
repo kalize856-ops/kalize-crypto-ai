@@ -108,7 +108,8 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 "model_key TEXT PRIMARY KEY, w_momentum REAL NOT NULL, " +
                 "w_trend REAL NOT NULL, w_range REAL NOT NULL, bias REAL NOT NULL, " +
                 "samples INTEGER NOT NULL DEFAULT 0, correct INTEGER NOT NULL DEFAULT 0, " +
-                "candle_samples INTEGER NOT NULL DEFAULT 0, last_candle_time INTEGER NOT NULL DEFAULT 0, " +\n                "trade_samples INTEGER NOT NULL DEFAULT 0, trade_correct INTEGER NOT NULL DEFAULT 0, " +
+                "candle_samples INTEGER NOT NULL DEFAULT 0, last_candle_time INTEGER NOT NULL DEFAULT 0, " +
+                "trade_samples INTEGER NOT NULL DEFAULT 0, trade_correct INTEGER NOT NULL DEFAULT 0, " +
                 "updated_at INTEGER NOT NULL)");
     }
 
