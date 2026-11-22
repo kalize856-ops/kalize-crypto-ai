@@ -151,3 +151,11 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Older candles are cleaned automatically.
 - Paper trading can use a provisional model estimate after the seven-candle feature window is available; incremental AI learning continues as new completed candles arrive.
 - Entries still require an upward-bias signal and the configured confidence threshold. All activity remains virtual and local.
+
+
+### Build 0.5.28 — per-market re-entry cooldown
+- Adds a five-minute cooldown after an AI-managed simulated position closes, whether it closes from a downward-bias signal or its stop-loss.
+- The cooldown is tracked separately for BTCUSDT, ETHUSDT and SOLUSDT and survives app restarts using local app settings.
+- Prevents rapid close-and-reopen churn while allowing other markets to be evaluated independently.
+- Does not delay stop-loss monitoring or interfere with existing open-position management.
+- Paper trading only; no real orders or funds.
