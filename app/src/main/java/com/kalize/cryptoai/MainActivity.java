@@ -1,6 +1,7 @@
 package com.kalize.cryptoai;
 
 import android.app.Activity;
+import android.os.Build;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.view.View;
@@ -8,14 +9,21 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-/** Lightweight Android 4.4-compatible paper-trading dashboard foundation. */
+/** Lightweight dashboard; platform-specific window APIs are guarded for API 19+. */
 public class MainActivity extends Activity {
     private LinearLayout content;
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(Color.rgb(16, 24, 32));
+
+        // These window-color methods were introduced in API 21.
+        // Guard them so the same APK starts safely on Android 4.4.4 (API 19).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(Color.rgb(16, 24, 32));
+            getWindow().setNavigationBarColor(Color.rgb(16, 24, 32));
+        }
+
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         content = new LinearLayout(this);
@@ -35,7 +43,7 @@ public class MainActivity extends Activity {
         addPanel("PAPER TRADING", "Open positions    0\nClosed trades      0\nNet profit/loss    $0.00");
         addPanel("HISTORICAL DATA", "Learning window: 30 days\nCandlestick storage: local database\nAutomatic retention cleanup: planned");
         addPanel("RISK CONTROLS", "Paper mode only\nFee and slippage simulation: planned\nEmergency pause: planned");
-        addText("Build 0.1.0 · Foundation", 11, Color.GRAY, false);
+        addText("Build 0.1.1 · API 19+ compatibility", 11, Color.GRAY, false);
         setContentView(scroll);
     }
 

@@ -8,10 +8,13 @@ android {
 
     defaultConfig {
         applicationId 'com.kalize.cryptoai'
+        // API 19 = Android 4.4. This keeps Android 4.4.4 and newer devices eligible.
         minSdk 19
+        // Deliberately conservative for the first legacy-device-compatible release.
+        // This does not prevent installation on newer Android versions.
         targetSdk 28
-        versionCode 1
-        versionName '0.1.0'
+        versionCode 2
+        versionName '0.1.1'
     }
 
     compileOptions {
