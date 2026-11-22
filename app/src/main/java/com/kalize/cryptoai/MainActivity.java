@@ -248,9 +248,10 @@ public class MainActivity extends Activity {
         if (database == null) return;
         if (cashDepleted) {
             if (!"1".equals(database.getSetting("cash_depleted_notified", "0"))) {
-                postPracticeNotification(4202, "Virtual practice balance depleted",
-                        "The practice bot has paused opening new positions. Start over to reset the virtual account.");
-                database.putSetting("cash_depleted_notified", "1");
+                if (postPracticeNotification(4202, "Virtual practice balance depleted",
+                        "The practice bot has paused opening new positions. Start over to reset the virtual account.")) {
+                    database.putSetting("cash_depleted_notified", "1");
+                }
             }
         }
 
@@ -282,14 +283,15 @@ public class MainActivity extends Activity {
         if (previous.length() == 0) {
             database.putSetting("last_practice_notification_event", eventKey);
         } else if (!previous.equals(eventKey)) {
-            database.putSetting("last_practice_notification_event", eventKey);
-            if (title != null) postPracticeNotification(4201, title, message);
+            if (title == null || postPracticeNotification(4201, title, message)) {
+                database.putSetting("last_practice_notification_event", eventKey);
+            }
         }
     }
 
-    private void postPracticeNotification(int id, String title, String message) {
+    private boolean postPracticeNotification(int id, String title, String message) {
         if (Build.VERSION.SDK_INT >= 33 &&
-                checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return;
+                checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return false;
         Intent openApp = new Intent(this, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -305,7 +307,9 @@ public class MainActivity extends Activity {
                 .setContentIntent(pending)
                 .setAutoCancel(true);
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager != null) manager.notify(id, builder.build());
+        if (manager == null) return false;
+        manager.notify(id, builder.build());
+        return true;
     }
 
     private void updateQuotePanel(String quote) {
