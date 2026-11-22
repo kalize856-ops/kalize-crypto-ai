@@ -72,3 +72,9 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Adds an all-time closed-trade performance report: total wins/losses/break-even trades, win rate, average win/loss, best/worst trade, gross simulated profit/loss, and profit factor.
 - Statistics are calculated from the local paper-trade ledger using recorded net realized P/L after simulated costs. No live orders or real funds are involved.
 - Compatible with the existing Android 4.4.4+ target.
+
+
+## Build 0.5.9 — per-coin paper-trade breakdown
+
+- Extends the performance report with one section per traded symbol, showing closed-trade count, win rate, net simulated P/L, and average P/L per trade.
+- Uses only the local virtual trade ledger and recorded net realized P/L after simulated costs. Results are descriptive history, not predictions or trading recommendations.
