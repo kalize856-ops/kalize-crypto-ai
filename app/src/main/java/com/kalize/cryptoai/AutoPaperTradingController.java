@@ -40,7 +40,7 @@ public final class AutoPaperTradingController {
         OnDeviceLearningEngine.Assessment assessment = learner.assess(symbol, interval);
         SQLiteDatabase db = database.getReadableDatabase();
         Cursor cursor = db.rawQuery(
-                "SELECT id, stop_loss FROM paper_trades WHERE symbol=? AND status='OPEN' ORDER BY opened_at ASC LIMIT 1",
+                "SELECT id, stop_loss FROM paper_trades WHERE symbol=? AND status='OPEN' AND ai_probability>=0 ORDER BY opened_at ASC LIMIT 1",
                 new String[]{symbol});
         long openId = -1L;
         double stopLoss = 0.0;
