@@ -1110,7 +1110,7 @@ public class MainActivity extends Activity {
         heading.setText(title);
         heading.setTextColor(Color.rgb(171, 148, 255));
         heading.setTextSize(11);
-        heading.setLetterSpacing(0.06f);
+        if (Build.VERSION.SDK_INT >= 21) heading.setLetterSpacing(0.06f);
         heading.setTypeface(null, android.graphics.Typeface.BOLD);
         heading.setPadding(dp(16), dp(15), dp(16), dp(4));
         heading.setBackground(makeRoundedBackground(Color.rgb(20, 28, 43), 18));
