@@ -928,6 +928,12 @@ public class MainActivity extends Activity {
             else report.append(gapEvents).append(" gap(s), ")
                     .append(missingMinutes).append(" missing minute(s); latest gap near ")
                     .append(mostRecentGapAge).append(" min ago");
+            if (samples >= 2) {
+                double coverage = 100.0 * samples / (samples + (double) missingMinutes);
+                report.append("\n  Observed candle coverage: ")
+                        .append(String.format(Locale.US, "%.1f%%", coverage))
+                        .append(" across the scanned timestamp span");
+            }
         }
         report.append("\n\nFresh: ").append(fresh)
                 .append(" · Delayed: ").append(delayed)
