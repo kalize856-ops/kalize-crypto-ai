@@ -91,3 +91,9 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Adds selected-period current win/loss sequence and longest winning/losing sequences to performance analytics.
 - Uses closed virtual trades in chronological order; break-even outcomes reset a sequence.
 - Streaks are historical summaries only and are not forecasts or trading recommendations.
+
+
+### Build 0.5.12 — daily paper-trade performance breakdown
+- Adds a daily summary for the selected performance period, showing closed trades, wins and net simulated P/L.
+- Displays up to the latest 14 days in the selected period, ordered newest first.
+- Uses closed virtual trades only; the report is historical and not a forecast.
