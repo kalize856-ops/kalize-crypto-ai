@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
 import java.util.ArrayList;
 
 /**
- * Mandatory autonomous paper trader. Decisions stay in the local virtual ledger;
+ * Autonomous paper trader. Provisional model estimates can be used while learning continues. Decisions stay in the local virtual ledger;
  * there is no user-facing manual mode or exchange-account order API.
  */
 public final class AutoPaperTradingController {
@@ -99,7 +99,7 @@ public final class AutoPaperTradingController {
         }
 
         if (!"UPWARD BIAS".equals(assessment.signal) ||
-                assessment.samples < 50 || assessment.confidence < MIN_CONFIDENCE) {
+                assessment.confidence < MIN_CONFIDENCE) {
             return "No simulated entry: AI signal or confidence threshold not met.";
         }
 
