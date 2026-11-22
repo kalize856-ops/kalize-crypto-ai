@@ -191,7 +191,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.5 · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.6 · Portfolio drawdown tracking · Automatic stop-loss monitoring · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -262,6 +262,14 @@ public class MainActivity extends Activity {
         double equity = cash + marketValue;
         double realized = scalar(db,
                 "SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED'");
+        // Persist the highest observed virtual equity so drawdown survives app restarts.
+        double equityPeak = readPositiveSetting("equity_high_water_mark", 100.0);
+        if (equity > equityPeak) {
+            equityPeak = equity;
+            database.putSetting("equity_high_water_mark", String.format(Locale.US, "%.8f", equityPeak));
+        }
+        double drawdown = Math.max(0.0, equityPeak - equity);
+        double drawdownPercent = equityPeak > 0.0 ? (drawdown / equityPeak) * 100.0 : 0.0;
         boolean cashDepleted = cash <= 0.005;
         if (cashDepleted && autoTrader.isEnabled()) autoTrader.setEnabled(false);
         portfolioPanel.setText((cashDepleted ? "VIRTUAL CASH DEPLETED · NEW TRADES PAUSED\n" : "") +
@@ -272,6 +280,9 @@ public class MainActivity extends Activity {
                 "\nRealized P/L (all time)    " + money(realized) +
                 "\nToday's realized P/L    " + money(tradingEngine.getTodayRealizedPnl()) +
                 "\nStarting virtual balance    $100.00" +
+                "\nHighest virtual equity    " + money(equityPeak) +
+                "\nCurrent drawdown    " + money(drawdown) + " (" +
+                String.format(Locale.US, "%.2f%%", drawdownPercent) + ")" +
                 (cashDepleted ? "\nStatus: no virtual cash available. Use Reset simulation to begin a new account." : ""));
 
         openTradesPanel.setText(open.toString());
@@ -544,6 +555,16 @@ public class MainActivity extends Activity {
             }
         } finally { c.close(); }
         return b.length() == 0 ? "No paper trades recorded yet." : b.toString();
+    }
+
+    private double readPositiveSetting(String key, double fallback) {
+        try {
+            double value = Double.parseDouble(database.getSetting(key, String.valueOf(fallback)));
+            return value > 0.0 && !Double.isNaN(value) && !Double.isInfinite(value)
+                    ? value : fallback;
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     private double latestPrice(SQLiteDatabase db, String symbol) {
