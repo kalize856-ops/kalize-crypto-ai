@@ -2,6 +2,7 @@ package com.kalize.cryptoai;
 
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import java.util.ArrayList;
 
 /**
  * Opt-in automatic paper trader. All decisions and orders stay in the local
@@ -33,13 +34,45 @@ public final class AutoPaperTradingController {
 
     /** Called only after a completed candle has been stored. */
     public synchronized String onCompletedCandle(String symbol, String interval,
-                                                   double marketPrice) {
-        if (!isEnabled()) return "Automatic paper trading is off.";
+                                                   double marketPrice, double candleLow) {
+        if (!finitePositive(marketPrice) || !finitePositive(candleLow))
+            return "Skipped: invalid candle price.";
+
+        // Stop-loss monitoring is independent of the AI auto-trading switch.
+        SQLiteDatabase monitorDb = database.getReadableDatabase();
+        Cursor stops = monitorDb.rawQuery(
+                "SELECT id, stop_loss FROM paper_trades WHERE symbol=? AND status='OPEN' AND stop_loss>0 ORDER BY opened_at ASC",
+                new String[]{symbol});
+        ArrayList<long[]> triggered = new ArrayList<long[]>();
+        try {
+            while (stops.moveToNext()) {
+                long id = stops.getLong(0);
+                double stop = stops.getDouble(1);
+                if (candleLow <= stop) {
+                    double exitReference = marketPrice < stop ? marketPrice : stop;
+                    triggered.add(new long[]{id, Double.doubleToLongBits(exitReference)});
+                }
+            }
+        } finally {
+            stops.close();
+        }
+
+        StringBuilder stopReport = new StringBuilder();
+        for (long[] item : triggered) {
+            double exitReference = Double.longBitsToDouble(item[1]);
+            PaperTradingEngine.Result closed = trading.sell(item[0], exitReference);
+            if (stopReport.length() > 0) stopReport.append("\n");
+            stopReport.append(closed.success ? "Stop-loss executed: " : "Stop-loss error: ")
+                    .append(closed.message);
+        }
+        if (!isEnabled()) {
+            return stopReport.length() > 0 ? stopReport.toString() :
+                    "Automatic paper trading is off. Stop-loss monitoring remains active.";
+        }
         if (database.isVirtualCashDepleted()) {
             setEnabled(false);
             return "Virtual cash depleted. Automatic paper trading has been paused; reset the simulation to restart.";
         }
-        if (!finitePositive(marketPrice)) return "Skipped: invalid market price.";
 
         OnDeviceLearningEngine.Assessment assessment = learner.assess(symbol, interval);
         SQLiteDatabase db = database.getReadableDatabase();
@@ -58,7 +91,7 @@ public final class AutoPaperTradingController {
         }
 
         if (openId > 0) {
-            if (marketPrice <= stopLoss || "DOWNWARD BIAS".equals(assessment.signal)) {
+            if ("DOWNWARD BIAS".equals(assessment.signal)) {
                 PaperTradingEngine.Result closed = trading.sell(openId, marketPrice);
                 return closed.message;
             }
@@ -86,7 +119,7 @@ public final class AutoPaperTradingController {
         if (!finitePositive(quantity)) return "No simulated entry: position size is invalid.";
         PaperTradingEngine.Result opened =
                 trading.buyWithAiSignal(symbol, interval, quantity, marketPrice, stop);
-        return opened.message;
+        return (stopReport.length() > 0 ? stopReport.toString() + "\n" : "") + opened.message;
     }
 
     private boolean finitePositive(double value) {
