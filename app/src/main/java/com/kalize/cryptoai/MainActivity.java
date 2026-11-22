@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel;
+    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
@@ -158,6 +158,9 @@ public class MainActivity extends Activity {
         openTradesPanel = addPanel("TRADES THE AI IS WATCHING", "No open positions.");
         performancePanel = addPanel("TRADE RESULTS", "Waiting for closed paper trades…");
         addPerformanceRangeSelector();
+        dailyPerformancePanel = addPanel("TODAY'S PRACTICE REPORT", loadDailyPerformanceReport(database.getReadableDatabase()));
+        riskExplanationPanel = addPanel("WHAT THE SAFETY LIMITS MEAN", loadRiskExplanation());
+        resetHistoryPanel = addPanel("PRACTICE ACCOUNT RESTARTS", loadResetHistory());
         historyPanel = addPanel("PAST TRADES", "No paper trades recorded yet.");
         addHistoryFilterSelector();
 
@@ -301,6 +304,9 @@ public class MainActivity extends Activity {
         refreshCharts(db);
         historyPanel.setText(loadHistory(db));
         if (performancePanel != null) performancePanel.setText(loadPerformanceReport(db));
+        if (dailyPerformancePanel != null) dailyPerformancePanel.setText(loadDailyPerformanceReport(db));
+        if (riskExplanationPanel != null) riskExplanationPanel.setText(loadRiskExplanation());
+        if (resetHistoryPanel != null) resetHistoryPanel.setText(loadResetHistory());
         modelPanel.setText(loadModels());
         if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
     }
@@ -684,6 +690,58 @@ public class MainActivity extends Activity {
                 " · " + historyFilter.toLowerCase(Locale.US) + " filter";
         return header + "\n\n" + b.toString() +
                 "\n\nAll trades use virtual money only.";
+    }
+
+
+    /** Plain-language explanation of the simulator's built-in risk limits. */
+    private String loadRiskExplanation() {
+        return "1% risk per practice trade: the planned loss at the stop is limited to about 1% of virtual account value. A fast price move can still make the result different.\\n\\n" +
+                "2% daily loss pause: when closed practice losses reach 2% of the account's starting balance for the day, the bot stops opening new positions until the next day.\\n\\n" +
+                "3 open positions maximum: prevents the practice bot from opening too many positions at once.\\n\\n" +
+                "25% position-size limit: one position cannot use more than a quarter of the virtual account's estimated value.\\n\\n" +
+                "Fees and slippage: simulated costs are subtracted, so results are not based on perfect trades.\\n\\n" +
+                "These limits reduce simulated exposure; they do not guarantee a profit or prevent every loss.";
+    }
+
+    /** Summary of closed virtual trades since the start of the current day. */
+    private String loadDailyPerformanceReport(SQLiteDatabase db) {
+        long dayStart = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L);
+        Cursor c = db.rawQuery(
+                "SELECT COUNT(*), COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0)," +
+                "COALESCE(SUM(CASE WHEN realized_pnl<0 THEN 1 ELSE 0 END),0)," +
+                "COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED' AND closed_at>=?",
+                new String[]{String.valueOf(dayStart)});
+        try {
+            if (!c.moveToFirst() || c.getInt(0) == 0)
+                return "No finished practice trades today.\\nToday's closed-trade result: $0.00\\nThe report updates when a practice trade finishes.";
+            return "Finished practice trades: " + c.getInt(0) +
+                    "\\nProfitable: " + c.getInt(1) +
+                    "\\nLost value: " + c.getInt(2) +
+                    "\\nToday's closed-trade result: " + money(c.getDouble(3)) +
+                    "\\nDaily loss pause: " + (tradingEngine.isDailyLossLimitReached() ? "Reached · new entries paused" : "Not reached");
+        } finally { c.close(); }
+    }
+
+    /** Previous virtual-account sessions are kept when the user starts over. */
+    private String loadResetHistory() {
+        Cursor c = database.getReadableDatabase().rawQuery(
+                "SELECT reset_at, previous_cash, previous_closed_trades, previous_realized_pnl " +
+                "FROM reset_history ORDER BY reset_at DESC LIMIT 10", null);
+        StringBuilder out = new StringBuilder();
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("MMM d, yyyy HH:mm", Locale.US);
+        int count = 0;
+        try {
+            while (c.moveToNext()) {
+                if (count++ > 0) out.append("\\n\\n");
+                out.append(format.format(new java.util.Date(c.getLong(0))))
+                        .append("\\nCash before restart: ").append(money(c.getDouble(1)))
+                        .append("\\nFinished trades: ").append(c.getInt(2))
+                        .append("\\nSession result: ").append(money(c.getDouble(3)));
+            }
+        } finally { c.close(); }
+        if (count == 0) return "No account restarts recorded yet. Starting over will save a summary of the previous practice account here.";
+        return "Latest " + count + " account restart" + (count == 1 ? "" : "s") + "\\n\\n" + out.toString() +
+                "\\n\\nOnly the 10 most recent restart summaries are shown.";
     }
 
     private String formatDuration(long durationMs) {
