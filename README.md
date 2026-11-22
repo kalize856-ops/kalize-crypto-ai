@@ -35,3 +35,11 @@ GitHub Actions builds a debug APK using JDK 17 and Gradle 8.7. Open the Actions 
 
 ## Important
 This is an educational simulator. Backtests and paper results do not predict or guarantee future market results.
+
+
+## Finite virtual wallet (0.5.4)
+- Simulated purchases, fees and realized losses reduce the finite virtual cash balance.
+- The simulator never silently tops up or resets the wallet.
+- When virtual cash reaches zero, automatic paper trading is disabled and new positions are blocked.
+- The dashboard provides an explicit **Reset virtual account** action. It warns that resetting clears simulated positions and trade history and restores the wallet to $100; market candles and AI learning data are preserved.
+- Educational simulation only; no real funds, exchange accounts or live orders.
