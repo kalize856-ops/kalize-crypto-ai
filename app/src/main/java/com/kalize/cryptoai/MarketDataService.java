@@ -215,13 +215,14 @@ public final class MarketDataService extends Service {
             double high = number(k.optString("h"));
             double low = number(k.optString("l"));
             double close = number(k.optString("c"));
+            double candleLow = number(k.optString("l"));
             double volume = number(k.optString("v"));
             if (openTime <= 0 || !database.saveCandle(
                     symbol, "1m", openTime, open, high, low, close, volume)) return;
 
             // The just-closed candle supplies the next label for the prior candle.
             learner.learn(symbol, "1m");
-            String automation = autoTrader.onCompletedCandle(symbol, "1m", close);
+            String automation = autoTrader.onCompletedCandle(symbol, "1m", close, candleLow);
             broadcast(symbol + " · 1m candle saved\n" + automation);
             updateNotification("Live · " + symbol + " candle saved");
         } catch (Exception ignored) {
