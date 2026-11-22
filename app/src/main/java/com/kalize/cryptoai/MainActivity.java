@@ -25,7 +25,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel;
+    private TextView marketStatus, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel;
     private Button autoButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -36,7 +36,10 @@ public class MainActivity extends Activity {
 
     private final BroadcastReceiver marketReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (marketStatus != null && intent != null) {
+            if (intent == null) return;
+            String quotes = intent.getStringExtra(MarketDataService.EXTRA_QUOTES);
+            if (quotes != null && marketQuotes != null) { updateQuotePanel(quotes); return; }
+            if (marketStatus != null) {
                 String status = intent.getStringExtra(MarketDataService.EXTRA_STATUS);
                 marketStatus.setText((status == null ? "Waiting for market feed" : status) +
                         "\nCompleted 1m candles stored: " + database.getStoredCandleCount());
@@ -102,6 +105,8 @@ public class MainActivity extends Activity {
         marketStatus = addPanel("LIVE MARKET WATCH",
                 "Starting persistent WebSocket connection…\nBTC / USDT    waiting\n" +
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
+        marketQuotes = addPanel("LIVE QUOTES · 24-HOUR SNAPSHOT",
+                "Waiting for live ticker updates…\nLast price, daily change, high, low and quote volume.");
         addText("MARKET PRICE CHART", 12, Color.rgb(22, 192, 140), true);
         addText("Choose a pair, candle interval and history range. Touch or drag across candles to inspect OHLC values.", 12, Color.LTGRAY, false);
         addPairSelector();
@@ -165,12 +170,44 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.2 · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.3 · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
     }
 
+    private void updateQuotePanel(String quote) {
+        if (marketQuotes == null || quote == null) return;
+        String[] parts = quote.split("\\|");
+        if (parts.length != 6) return;
+        try {
+            String symbol = parts[0];
+            double last = Double.parseDouble(parts[1]);
+            double change = Double.parseDouble(parts[2]);
+            double high = Double.parseDouble(parts[3]);
+            double low = Double.parseDouble(parts[4]);
+            double volume = Double.parseDouble(parts[5]);
+            String formatted = symbol + "  ·  " + money(last) +
+                    "\n24h change: " + (change >= 0 ? "+" : "") + String.format(Locale.US, "%.2f%%", change) +
+                    "\n24h high / low: " + money(high) + " / " + money(low) +
+                    "\n24h quote volume: " + money(volume);
+            String existing = marketQuotes.getText().toString();
+            String[] blocks = existing.split("\n\n");
+            StringBuilder combined = new StringBuilder();
+            boolean replaced = false;
+            for (String block : blocks) {
+                if (block.startsWith(symbol + "  ·")) { block = formatted; replaced = true; }
+                if (combined.length() > 0) combined.append("\n\n");
+                combined.append(block);
+            }
+            if (!replaced) {
+                if (existing.startsWith("Waiting")) combined.setLength(0);
+                else if (combined.length() > 0) combined.append("\n\n");
+                combined.append(formatted);
+            }
+            marketQuotes.setText(combined.toString());
+        } catch (NumberFormatException ignored) { }
+    }
     private void refreshDashboard() {
         if (database == null || portfolioPanel == null) return;
         SQLiteDatabase db = database.getReadableDatabase();
