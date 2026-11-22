@@ -911,10 +911,10 @@ public class MainActivity extends Activity {
                     long olderTime = gaps.getLong(0);
                     samples++;
                     if (newerTime > 0L) {
-                        long missing = Math.max(0L, (newerTime - olderTime) / 60000L - 1L);
-                        if (missing > 0L) {
+                        long missingCount = Math.max(0L, (newerTime - olderTime) / 60000L - 1L);
+                        if (missingCount > 0L) {
                             gapEvents++;
-                            missingMinutes += missing;
+                            missingMinutes += missingCount;
                             if (mostRecentGapAge < 0L)
                                 mostRecentGapAge = Math.max(0L, (now - newerTime) / 60000L);
                         }
