@@ -15,14 +15,16 @@ public final class OnDeviceLearningEngine {
     public static final class Assessment {
         public final String symbol, signal;
         public final double confidence, accuracy, probability;
-        public final int samples;
-        Assessment(String s,String g,double c,int n,double a,double p) {
+        public final int samples, candleSamples, tradeSamples;
+        public final double tradeAccuracy;
+        Assessment(String s,String g,double c,int n,double a,double p,int cs,int ts,double ta) {
             symbol=s;signal=g;confidence=c;samples=n;accuracy=a;probability=p;
+            candleSamples=cs;tradeSamples=ts;tradeAccuracy=ta;
         }
     }
     private static final class Model {
         double momentum=0.10,trend=0.10,range=0,bias=0;
-        int samples=0,correct=0,candleSamples=0;
+        int samples=0,correct=0,candleSamples=0,tradeSamples=0,tradeCorrect=0;
         long lastCandleTime=0L;
     }
 
@@ -75,7 +77,7 @@ public final class OnDeviceLearningEngine {
     /** Current model estimate from the latest seven completed 1-minute candles. */
     public synchronized Assessment assess(String symbol,String interval) {
         if(empty(symbol)||empty(interval))
-            return new Assessment("","INSUFFICIENT DATA",0,0,0,0.5);
+            return new Assessment("","INSUFFICIENT DATA",0,0,0,0.5,0,0,0);
         SQLiteDatabase db=helper.getReadableDatabase();
         Model m=load(db,key(symbol,interval));
         Cursor c=db.rawQuery("SELECT close,high,low,volume FROM candles " +
@@ -87,14 +89,17 @@ public final class OnDeviceLearningEngine {
             close[n]=c.getDouble(0);high[n]=c.getDouble(1);
             low[n]=c.getDouble(2);volume[n]=c.getDouble(3);n++;
         }} finally { c.close(); }
-        if(n<7||m.samples<20)
-            return new Assessment(symbol,"LEARNING",0,m.samples,
-                    m.samples==0?0:100.0*m.correct/m.samples,0.5);
+        int candleCorrect=Math.max(0,m.correct-m.tradeCorrect);
+        double candleAccuracy=m.candleSamples==0?0:100.0*candleCorrect/m.candleSamples;
+        double tradeAccuracy=m.tradeSamples==0?0:100.0*m.tradeCorrect/m.tradeSamples;
+        if(n<7||m.candleSamples<20)
+            return new Assessment(symbol,"LEARNING",0,m.samples,candleAccuracy,0.5,
+                    m.candleSamples,m.tradeSamples,tradeAccuracy);
         reverse(close);reverse(high);reverse(low);reverse(volume);
         double p=probability(m,features(close,high,low,volume,6));
         String signal=p>0.58?"UPWARD BIAS":(p<0.42?"DOWNWARD BIAS":"NEUTRAL");
         return new Assessment(symbol,signal,Math.abs(p-0.5)*200,m.samples,
-                100.0*m.correct/m.samples,p);
+                candleAccuracy,p,m.candleSamples,m.tradeSamples,tradeAccuracy);
     }
 
     /** Updates the model with the outcome of an AI-tagged simulated trade. */
@@ -107,7 +112,8 @@ public final class OnDeviceLearningEngine {
         Model m=load(db,modelKey);
         int actual=realizedPnl>0?1:0;
         int predicted=predictedProbability>=0.5?1:0;
-        if(actual==predicted)m.correct++;
+        if(actual==predicted){m.correct++;m.tradeCorrect++;}
+        m.tradeSamples++;
         m.bias=clamp(m.bias+TRADE_LEARNING_RATE*(actual-predictedProbability),-3,3);
         m.samples++;
         save(db,modelKey,m);
@@ -128,11 +134,11 @@ public final class OnDeviceLearningEngine {
     private Model load(SQLiteDatabase db,String k) {
         Model m=new Model();
         Cursor c=db.rawQuery("SELECT w_momentum,w_trend,w_range,bias,samples,correct,"+
-                "candle_samples,last_candle_time FROM ai_models WHERE model_key=?",new String[]{k});
+                "candle_samples,last_candle_time,trade_samples,trade_correct FROM ai_models WHERE model_key=?",new String[]{k});
         try { if(c.moveToFirst()) {
             m.momentum=c.getDouble(0);m.trend=c.getDouble(1);m.range=c.getDouble(2);
             m.bias=c.getDouble(3);m.samples=c.getInt(4);m.correct=c.getInt(5);
-            m.candleSamples=c.getInt(6);m.lastCandleTime=c.getLong(7);
+            m.candleSamples=c.getInt(6);m.lastCandleTime=c.getLong(7);\n            m.tradeSamples=c.getInt(8);m.tradeCorrect=c.getInt(9);
         }} finally { c.close(); }
         return m;
     }
@@ -140,7 +146,7 @@ public final class OnDeviceLearningEngine {
         ContentValues v=new ContentValues();v.put("model_key",k);
         v.put("w_momentum",m.momentum);v.put("w_trend",m.trend);v.put("w_range",m.range);
         v.put("bias",m.bias);v.put("samples",m.samples);v.put("correct",m.correct);
-        v.put("candle_samples",m.candleSamples);v.put("last_candle_time",m.lastCandleTime);
+        v.put("candle_samples",m.candleSamples);v.put("last_candle_time",m.lastCandleTime);\n        v.put("trade_samples",m.tradeSamples);v.put("trade_correct",m.tradeCorrect);
         v.put("updated_at",System.currentTimeMillis());
         db.insertWithOnConflict("ai_models",null,v,SQLiteDatabase.CONFLICT_REPLACE);
     }
