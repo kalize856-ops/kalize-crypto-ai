@@ -11,11 +11,15 @@ android {
         minSdk 19
         targetSdk 28
         versionCode 3
-        versionName '0.1.2'
+        versionName '0.1.4'
     }
 
-    dependencies {\n        implementation 'com.squareup.okhttp3:okhttp:3.12.13'\n    }\n\n    compileOptions {
+    compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+}
+
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:3.12.13'
 }
