@@ -147,6 +147,10 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             auto.put("setting_key", "auto_paper_trading");
             auto.put("setting_value", "false");
             db.insertWithOnConflict("app_settings", null, auto, SQLiteDatabase.CONFLICT_REPLACE);
+            ContentValues peak = new ContentValues();
+            peak.put("setting_key", "equity_high_water_mark");
+            peak.put("setting_value", "100.0");
+            db.insertWithOnConflict("app_settings", null, peak, SQLiteDatabase.CONFLICT_REPLACE);
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
