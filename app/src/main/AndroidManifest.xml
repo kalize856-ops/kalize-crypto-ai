@@ -6,6 +6,10 @@
         android:allowBackup="true"
         android:label="Kalize Crypto AI Lite"
         android:theme="@style/AppTheme">
+        <service
+            android:name=".MarketDataService"
+            android:enabled="true"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:label="Kalize Crypto AI Lite"
