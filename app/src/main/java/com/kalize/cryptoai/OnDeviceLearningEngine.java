@@ -22,7 +22,7 @@ public final class OnDeviceLearningEngine {
     }
     private static final class Model {
         double momentum=0.10, trend=0.10, range=0, bias=0;
-        int samples=0, correct=0;
+        int samples=0, correct=0, candleSamples=0;
     }
     public OnDeviceLearningEngine(PaperDatabaseHelper h) {
         if (h==null) throw new IllegalArgumentException("Database required");
@@ -46,7 +46,7 @@ public final class OnDeviceLearningEngine {
                 low[n]=c.getDouble(2); volume[n]=c.getDouble(3); n++;
             }
         } finally { c.close(); }
-        int start=Math.max(6,Math.min(n-1,m.samples+6));
+        int start=Math.max(6,Math.min(n-1,m.candleSamples+6));
         int added=0;
         for(int i=start;i<n-1;i++) {
             double[] x=features(close,high,low,volume,i);
@@ -58,7 +58,7 @@ public final class OnDeviceLearningEngine {
             m.trend=clamp(m.trend+LEARNING_RATE*error*x[1],-4,4);
             m.range=clamp(m.range+LEARNING_RATE*error*x[2],-4,4);
             m.bias=clamp(m.bias+LEARNING_RATE*error,-3,3);
-            m.samples++; added++;
+            m.samples++; m.candleSamples++; added++;
         }
         save(db,modelKey,m);
         return added;
@@ -120,15 +120,15 @@ public final class OnDeviceLearningEngine {
     }
     private Model load(SQLiteDatabase db,String k) {
         Model m=new Model();
-        Cursor c=db.rawQuery("SELECT w_momentum,w_trend,w_range,bias,samples,correct FROM ai_models WHERE model_key=?",new String[]{k});
-        try {if(c.moveToFirst()){m.momentum=c.getDouble(0);m.trend=c.getDouble(1);m.range=c.getDouble(2);m.bias=c.getDouble(3);m.samples=c.getInt(4);m.correct=c.getInt(5);}}
+        Cursor c=db.rawQuery("SELECT w_momentum,w_trend,w_range,bias,samples,correct,candle_samples FROM ai_models WHERE model_key=?",new String[]{k});
+        try {if(c.moveToFirst()){m.momentum=c.getDouble(0);m.trend=c.getDouble(1);m.range=c.getDouble(2);m.bias=c.getDouble(3);m.samples=c.getInt(4);m.correct=c.getInt(5);m.candleSamples=c.getInt(6);}}
         finally {c.close();}
         return m;
     }
     private void save(SQLiteDatabase db,String k,Model m) {
         ContentValues v=new ContentValues();v.put("model_key",k);v.put("w_momentum",m.momentum);
         v.put("w_trend",m.trend);v.put("w_range",m.range);v.put("bias",m.bias);
-        v.put("samples",m.samples);v.put("correct",m.correct);v.put("updated_at",System.currentTimeMillis());
+        v.put("samples",m.samples);v.put("correct",m.correct);v.put("candle_samples",m.candleSamples);v.put("updated_at",System.currentTimeMillis());
         db.insertWithOnConflict("ai_models",null,v,SQLiteDatabase.CONFLICT_REPLACE);
     }
     private String key(String s,String i){return s.trim().toUpperCase(Locale.US)+"|"+i.trim();}
