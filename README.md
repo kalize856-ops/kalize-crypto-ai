@@ -85,3 +85,9 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Adds performance-report filters for the last 7 days, last 30 days, and all-time history.
 - The overall statistics and per-coin breakdown use the same selected period, based on each closed virtual trade's close timestamp.
 - The report refreshes locally when a period is selected; no network request or real-money trading is involved.
+
+
+### Build 0.5.11 — paper-trade streak analysis
+- Adds selected-period current win/loss sequence and longest winning/losing sequences to performance analytics.
+- Uses closed virtual trades in chronological order; break-even outcomes reset a sequence.
+- Streaks are historical summaries only and are not forecasts or trading recommendations.
