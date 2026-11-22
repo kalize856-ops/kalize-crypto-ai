@@ -13,7 +13,7 @@ import java.util.Locale;
 /** Lightweight local paper-trading dashboard; compatible with Android API 19+. */
 public class MainActivity extends Activity {
     private LinearLayout content;
-    private PaperDatabaseHelper database;
+    private PaperDatabaseHelper database;\n    private PaperTradingEngine tradingEngine;
 
     @Override
     public void onCreate(Bundle state) {
