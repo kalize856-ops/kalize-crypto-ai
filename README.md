@@ -137,3 +137,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Measures average high-low range percentage and average absolute close-to-close percentage change over up to 60 completed one-minute candles.
 - Shows the number of candles measured and clearly labels the figures as descriptive historical statistics, not forecasts or trading instructions.
 - Uses bounded SQLite reads and refreshes with the existing dashboard/feed updates.
+
+
+### Build 0.5.26 — duplicate live-candle protection
+- Live completed candles are inserted with a conflict-ignore operation instead of replacing an existing candle.
+- If the market WebSocket delivers the same symbol, interval and candle timestamp again, the duplicate is ignored before AI learning and paper-trade evaluation run.
+- Historical backfill keeps its existing replace behavior so refreshed historical data can still correct previously stored candle values.
+- This protects the virtual ledger from processing the same live candle event more than once; it does not guarantee trading performance or predict market outcomes.

@@ -214,6 +214,32 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         return true;
     }
 
+    /**
+     * Stores a live completed candle only once. Duplicate WebSocket deliveries are
+     * ignored so the same market event cannot trigger the paper trader twice.
+     */
+    public boolean saveCandleIfNew(String symbol, String interval, long openTime,
+                                   double open, double high, double low,
+                                   double close, double volume) {
+        if (symbol == null || interval == null || symbol.length() == 0 ||
+                interval.length() == 0 || openTime <= 0 || !valid(open) ||
+                !valid(high) || !valid(low) || !valid(close) || !valid(volume) ||
+                high < low || high < open || high < close || low > open || low > close ||
+                volume < 0) return false;
+        ContentValues values = new ContentValues();
+        values.put("symbol", symbol);
+        values.put("interval", interval);
+        values.put("open_time", openTime);
+        values.put("open", open);
+        values.put("high", high);
+        values.put("low", low);
+        values.put("close", close);
+        values.put("volume", volume);
+        long inserted = getWritableDatabase().insertWithOnConflict(
+                "candles", null, values, SQLiteDatabase.CONFLICT_IGNORE);
+        return inserted != -1L;
+    }
+
     /** Keeps the active candle dataset bounded to the most recent 30 days. */
     public int cleanExpiredCandles() {
         long cutoff = System.currentTimeMillis() - CANDLE_WINDOW_MS;

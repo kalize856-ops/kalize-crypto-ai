@@ -265,7 +265,7 @@ public final class MarketDataService extends Service {
             double close = number(k.optString("c"));
             double candleLow = number(k.optString("l"));
             double volume = number(k.optString("v"));
-            if (openTime <= 0 || !database.saveCandle(
+            if (openTime <= 0 || !database.saveCandleIfNew(
                     symbol, "1m", openTime, open, high, low, close, volume)) return;
 
             // The just-closed candle supplies the next label for the prior candle.
