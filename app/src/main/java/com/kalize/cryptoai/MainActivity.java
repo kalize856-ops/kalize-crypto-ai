@@ -13,7 +13,9 @@ import java.util.Locale;
 /** Lightweight local paper-trading dashboard; compatible with Android API 19+. */
 public class MainActivity extends Activity {
     private LinearLayout content;
-    private PaperDatabaseHelper database;\n    private PaperTradingEngine tradingEngine;
+    private PaperDatabaseHelper database;
+    private PaperTradingEngine tradingEngine;
+    private OnDeviceLearningEngine learningEngine;
 
     @Override
     public void onCreate(Bundle state) {
@@ -46,29 +48,33 @@ public class MainActivity extends Activity {
         addText("Starting balance: $100.00 · simulated funds only",
                 12, Color.LTGRAY, false);
         addSpace(20);
+
         addPanel("MARKET WATCH",
                 "Live market connection: not configured yet\nBTC / USD    —\nETH / USD    —\nSOL / USD    —");
+
         addPanel("PAPER TRADING",
                 "Closed trades    " + database.getClosedTradeCount() +
+                "\nOpen positions    " + tradingEngine.getOpenPositionCount() +
+                "\nOpen entry value    " + String.format(Locale.US, "$%.2f", tradingEngine.getOpenEntryValue()) +
                 "\nReal-money orders    disabled");
+
         OnDeviceLearningEngine.Assessment ai = learningEngine.assess("BTCUSDT", "1d");
         addPanel("ON-DEVICE LEARNING ENGINE",
                 "Model status    " + ai.signal +
-                "
-Training examples    " + ai.samples +
-                "
-Historical accuracy    " + String.format(Locale.US, "%.1f%%", ai.accuracy) +
-                "
-Signal strength    " + String.format(Locale.US, "%.1f%%", ai.confidence) +
-                "
-Runs locally on this phone");
+                "\nTraining examples    " + ai.samples +
+                "\nHistorical accuracy    " + String.format(Locale.US, "%.1f%%", ai.accuracy) +
+                "\nSignal strength    " + String.format(Locale.US, "%.1f%%", ai.confidence) +
+                "\nRuns locally on this phone");
+
         addPanel("HISTORICAL DATA",
                 "Learning window: 30 days\nStored candles: " +
                 database.getStoredCandleCount() +
                 "\nExpired candles: automatically cleaned");
+
         addPanel("RISK CONTROLS",
                 "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\nMaximum open positions: 3\nNo exchange order permissions");
-        addText("Build 0.1.2 · Android 4.4.4+ · Local SQLite storage",
+
+        addText("Build 0.1.3 · Android 4.4.4+ · Local SQLite storage",
                 11, Color.GRAY, false);
         setContentView(scroll);
     }
