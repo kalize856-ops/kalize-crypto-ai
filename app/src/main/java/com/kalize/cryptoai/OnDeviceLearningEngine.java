@@ -35,7 +35,7 @@ public final class OnDeviceLearningEngine {
      * Incrementally learns from completed OHLCV candles. Each candle is trained
      * only after the following candle closes, so the label is not future-leaked.
      */
-    public int learn(String symbol,String interval) {
+    public synchronized int learn(String symbol,String interval) {
         if(empty(symbol)||empty(interval)) return 0;
         SQLiteDatabase db=helper.getWritableDatabase();
         String modelKey=key(symbol,interval);
@@ -73,7 +73,7 @@ public final class OnDeviceLearningEngine {
     }
 
     /** Current model estimate from the latest seven completed 1-minute candles. */
-    public Assessment assess(String symbol,String interval) {
+    public synchronized Assessment assess(String symbol,String interval) {
         if(empty(symbol)||empty(interval))
             return new Assessment("","INSUFFICIENT DATA",0,0,0,0.5);
         SQLiteDatabase db=helper.getReadableDatabase();
@@ -98,7 +98,7 @@ public final class OnDeviceLearningEngine {
     }
 
     /** Updates the model with the outcome of an AI-tagged simulated trade. */
-    public boolean learnFromPaperOutcome(String symbol,String interval,
+    public synchronized boolean learnFromPaperOutcome(String symbol,String interval,
                                          double predictedProbability,double realizedPnl) {
         if(empty(symbol)||empty(interval)||!finite(predictedProbability)||
                 predictedProbability<0||predictedProbability>1||!finite(realizedPnl)) return false;
