@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 /** Small local store designed for Android 4.4+; simulation data only. */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 7;
+    private static final int DB_VERSION = 8;
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long CANDLE_WINDOW_MS = 30L * DAY_MS;
 
@@ -75,6 +75,12 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             mode.put("setting_value", "paper_only");
             db.insertWithOnConflict("app_settings", null, mode, SQLiteDatabase.CONFLICT_IGNORE);
         }
+        if (oldVersion < 8) {
+            if (!hasColumn(db, "ai_models", "trade_samples"))
+                db.execSQL("ALTER TABLE ai_models ADD COLUMN trade_samples INTEGER NOT NULL DEFAULT 0");
+            if (!hasColumn(db, "ai_models", "trade_correct"))
+                db.execSQL("ALTER TABLE ai_models ADD COLUMN trade_correct INTEGER NOT NULL DEFAULT 0");
+        }
         // Existing virtual balances, candles and trades are preserved.
     }
 
@@ -102,7 +108,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 "model_key TEXT PRIMARY KEY, w_momentum REAL NOT NULL, " +
                 "w_trend REAL NOT NULL, w_range REAL NOT NULL, bias REAL NOT NULL, " +
                 "samples INTEGER NOT NULL DEFAULT 0, correct INTEGER NOT NULL DEFAULT 0, " +
-                "candle_samples INTEGER NOT NULL DEFAULT 0, last_candle_time INTEGER NOT NULL DEFAULT 0, " +
+                "candle_samples INTEGER NOT NULL DEFAULT 0, last_candle_time INTEGER NOT NULL DEFAULT 0, " +\n                "trade_samples INTEGER NOT NULL DEFAULT 0, trade_correct INTEGER NOT NULL DEFAULT 0, " +
                 "updated_at INTEGER NOT NULL)");
     }
 
