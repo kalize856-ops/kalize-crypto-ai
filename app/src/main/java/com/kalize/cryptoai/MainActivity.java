@@ -1,6 +1,7 @@
 package com.kalize.cryptoai;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Build;
 import android.os.Bundle;
 import android.content.BroadcastReceiver;
@@ -148,6 +149,26 @@ public class MainActivity extends Activity {
         addText("AUTOMATIC AI PAPER TRADING", 12, Color.rgb(22, 192, 140), true);
         addText("Optional and OFF by default. The model can open or close virtual positions using completed 1-minute candles. No real funds or exchange orders are involved.",
                 13, Color.LTGRAY, false);
+        Button resetSimulation = new Button(this);
+        resetSimulation.setText("Reset virtual account · restore $100");
+        resetSimulation.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Reset paper simulation?")
+                        .setMessage("This clears all simulated positions and trade history and restores the virtual wallet to $100. Market candles and AI learning data will be kept. This cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Reset simulation", new android.content.DialogInterface.OnClickListener() {
+                            @Override public void onClick(android.content.DialogInterface dialog, int which) {
+                                database.resetPaperSimulation();
+                                refreshDashboard();
+                                updateAutoButton();
+                            }
+                        }).show();
+            }
+        });
+        content.addView(resetSimulation, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
         autoButton = new Button(this);
         updateAutoButton();
         autoButton.setOnClickListener(new View.OnClickListener() {
@@ -170,7 +191,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.5.3 · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
+        addText("Build 0.5.4 · Finite virtual wallet · Live ticker quotes · Landscape dashboard · Android 4.4.4+ · Public market data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -241,13 +262,17 @@ public class MainActivity extends Activity {
         double equity = cash + marketValue;
         double realized = scalar(db,
                 "SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED'");
-        portfolioPanel.setText("Total virtual equity    " + money(equity) +
+        boolean cashDepleted = cash <= 0.005;
+        if (cashDepleted && autoTrader.isEnabled()) autoTrader.setEnabled(false);
+        portfolioPanel.setText((cashDepleted ? "VIRTUAL CASH DEPLETED · NEW TRADES PAUSED\n" : "") +
+                "Total virtual equity    " + money(equity) +
                 "\nVirtual cash    " + money(cash) +
                 "\nOpen position value    " + money(marketValue) +
                 "\nUnrealized P/L    " + money(unrealized) +
                 "\nRealized P/L (all time)    " + money(realized) +
                 "\nToday's realized P/L    " + money(tradingEngine.getTodayRealizedPnl()) +
-                "\nStarting virtual balance    $100.00");
+                "\nStarting virtual balance    $100.00" +
+                (cashDepleted ? "\nStatus: no virtual cash available. Use Reset simulation to begin a new account." : ""));
 
         openTradesPanel.setText(open.toString());
         refreshCharts(db);
@@ -537,9 +562,12 @@ public class MainActivity extends Activity {
 
     private void updateAutoButton() {
         if (autoButton == null || autoTrader == null) return;
-        autoButton.setText(autoTrader.isEnabled()
+        boolean depleted = database.isVirtualCashDepleted();
+        autoButton.setEnabled(!depleted || autoTrader.isEnabled());
+        autoButton.setText(depleted ? "Virtual cash depleted · reset to restart" :
+                (autoTrader.isEnabled()
                 ? "Turn automatic paper trading OFF"
-                : "Turn automatic paper trading ON");
+                : "Turn automatic paper trading ON"));
     }
 
     private String money(double value) {
