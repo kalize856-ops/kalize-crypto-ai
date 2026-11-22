@@ -24,15 +24,29 @@ public final class OnDeviceLearningEngine {
     }
     public static final class Validation {
         public final int samples, correct, baselineCorrect, truePositive, trueNegative, falsePositive, falseNegative;
+        public final int[] confidenceBucketCounts;
+        public final double[] confidenceBucketMeanConfidence, confidenceBucketAccuracy;
         public final double accuracy, baselineAccuracy, brierScore, precision, recall, specificity, balancedAccuracy;
+        public final double calibrationError;
         Validation(int n,int c,int b,double a,double ba,double bs,int tp,int tn,int fp,int fn) {
+            this(n,c,b,a,ba,bs,tp,tn,fp,fn,new int[5],new double[5],new double[5]);
+        }
+        Validation(int n,int c,int b,double a,double ba,double bs,int tp,int tn,int fp,int fn,
+                   int[] counts,double[] meanConfidence,double[] bucketAccuracy) {
             samples=n;correct=c;baselineCorrect=b;accuracy=a;
             baselineAccuracy=ba;brierScore=bs;truePositive=tp;trueNegative=tn;
             falsePositive=fp;falseNegative=fn;
+            confidenceBucketCounts=counts;
+            confidenceBucketMeanConfidence=meanConfidence;
+            confidenceBucketAccuracy=bucketAccuracy;
             precision=(tp+fp)==0?0:100.0*tp/(tp+fp);
             recall=(tp+fn)==0?0:100.0*tp/(tp+fn);
             specificity=(tn+fp)==0?0:100.0*tn/(tn+fp);
             balancedAccuracy=(recall+specificity)/2.0;
+            double ece=0.0;
+            for(int i=0;i<counts.length;i++)
+                if(n>0) ece+=(counts[i]/(double)n)*Math.abs(meanConfidence[i]-bucketAccuracy[i]);
+            calibrationError=100.0*ece;
         }
     }
 
@@ -62,6 +76,8 @@ public final class OnDeviceLearningEngine {
         Model test=new Model();
         int scored=0,correct=0,baselineCorrect=0;
         int tp=0,tn=0,fp=0,fn=0;
+        int[] bucketCounts=new int[5];
+        double[] bucketConfidenceTotals=new double[5],bucketCorrectTotals=new double[5];
         double brier=0.0;
         for(int i=6;i<n-1;i++) {
             if(times[i+1]<=times[i]) continue;
@@ -70,6 +86,11 @@ public final class OnDeviceLearningEngine {
             int label=close[i+1]>close[i]?1:0;
             int predicted=p>=0.5?1:0;
             if(predicted==label) correct++;
+            double confidence=Math.max(p,1.0-p);
+            int bucket=Math.min(4,(int)(confidence*5.0));
+            bucketCounts[bucket]++;
+            bucketConfidenceTotals[bucket]+=confidence;
+            if(predicted==label) bucketCorrectTotals[bucket]++;
             if(predicted==1&&label==1) tp++;
             else if(predicted==0&&label==0) tn++;
             else if(predicted==1) fp++;
@@ -84,9 +105,17 @@ public final class OnDeviceLearningEngine {
             test.bias=clamp(test.bias+LEARNING_RATE*learningError,-3,3);
             scored++;
         }
-        if(scored==0) return new Validation(0,0,0,0,0,0);
+        if(scored==0) return new Validation(0,0,0,0,0,0,0,0,0,0);
+        double[] bucketMeanConfidence=new double[5],bucketAccuracy=new double[5];
+        for(int i=0;i<5;i++) {
+            if(bucketCounts[i]>0) {
+                bucketMeanConfidence[i]=bucketConfidenceTotals[i]/bucketCounts[i];
+                bucketAccuracy[i]=bucketCorrectTotals[i]/bucketCounts[i];
+            }
+        }
         return new Validation(scored,correct,baselineCorrect,
-                100.0*correct/scored,100.0*baselineCorrect/scored,brier/scored,tp,tn,fp,fn);
+                100.0*correct/scored,100.0*baselineCorrect/scored,brier/scored,tp,tn,fp,fn,
+                bucketCounts,bucketMeanConfidence,bucketAccuracy);
     }
 
     private static final class Model {
