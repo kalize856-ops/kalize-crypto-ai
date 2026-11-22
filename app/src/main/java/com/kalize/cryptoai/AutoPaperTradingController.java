@@ -101,6 +101,12 @@ public final class AutoPaperTradingController {
             return "Holding simulated " + symbol + " position.";
         }
 
+        // Only open new virtual positions when the latest three 1m candles
+        // are fresh and consecutive. Existing positions remain managed above.
+        if (!hasHealthyRecentCandles(symbol, interval)) {
+            return "Entry paused: waiting for three fresh, consecutive market candles.";
+        }
+
         long cooldownRemaining = getCooldownRemaining(symbol);
         if (cooldownRemaining > 0L) {
             return "Entry paused briefly after the previous exit · " +
@@ -127,6 +133,33 @@ public final class AutoPaperTradingController {
         PaperTradingEngine.Result opened =
                 trading.buyWithAiSignal(symbol, interval, quantity, marketPrice, stop);
         return (stopReport.length() > 0 ? stopReport.toString() + "\n" : "") + opened.message;
+    }
+
+    private boolean hasHealthyRecentCandles(String symbol, String interval) {
+        SQLiteDatabase db = database.getReadableDatabase();
+        Cursor cursor = db.rawQuery(
+                "SELECT open_time FROM candles WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 3",
+                new String[]{symbol, interval});
+        long[] times = new long[3];
+        int count = 0;
+        try {
+            while (cursor.moveToNext() && count < times.length) {
+                times[count++] = cursor.getLong(0);
+            }
+        } finally {
+            cursor.close();
+        }
+        if (count < 3) return false;
+
+        long now = System.currentTimeMillis();
+        long latestAge = now - times[0];
+        if (latestAge < 0L || latestAge > 180000L) return false;
+
+        for (int i = 0; i < 2; i++) {
+            long gap = times[i] - times[i + 1];
+            if (gap < 45000L || gap > 90000L) return false;
+        }
+        return true;
     }
 
     private void recordExit(String symbol) {
