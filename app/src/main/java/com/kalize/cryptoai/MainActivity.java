@@ -108,6 +108,15 @@ public class MainActivity extends Activity {
         scroll.addView(dashboardRoot);
 
         addText("KALIZE CRYPTO AI", 24, Color.WHITE, true);
+        addPanel("QUICK GUIDE",
+                "Live prices: Real coin prices from the market.\\n" +
+                "Practice money: The balance is pretend money, not cash.\\n" +
+                "AI bot: It makes practice trades automatically.\\n" +
+                "Profit or loss: Shows whether a practice trade gained or lost value.\\n" +
+                "Balance runs out: The bot stops opening trades when its practice money is gone.\\n" +
+                "Start over: Resets the practice account to its starting balance.\\n\\n" +
+                "Nothing in this app places real-money trades.");
+
         addText("PRACTICE TRADING · VIRTUAL MONEY ONLY", 12, Color.rgb(22, 192, 140), true);
         addSpace(18);
 
