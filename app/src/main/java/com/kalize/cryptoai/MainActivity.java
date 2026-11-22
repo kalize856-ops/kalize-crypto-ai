@@ -132,7 +132,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         addSpace(12);
-        addText("Build 0.3.0 · Android 4.4.4+ · Binance public data · Local SQLite",
+        addText("Build 0.5.0 · Android 4.4.4+ · Binance public data · Local SQLite",
                 11, Color.GRAY, false);
         setContentView(scroll);
         refreshDashboard();
@@ -360,7 +360,18 @@ public class MainActivity extends Activity {
                     .append("\nUpward precision / recall: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%% / %.1f%%", v.precision, v.recall))
                     .append("\nDownward specificity: ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.1f%%", v.specificity))
                     .append("\nConfusion counts (TP/TN/FP/FN): ").append(v.truePositive).append("/").append(v.trueNegative).append("/").append(v.falsePositive).append("/").append(v.falseNegative)
-                    .append("\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
+                    .append("\nConfidence calibration error (lower is better): ").append(v.samples == 0 ? "Not available" : String.format(Locale.US, "%.2f%%", v.calibrationError))
+                    .append("\nConfidence buckets (range: predictions / mean confidence / observed accuracy):");
+            String[] bucketLabels = new String[]{"50-59%", "60-69%", "70-79%", "80-89%", "90-100%"};
+            for (int bucket = 0; bucket < bucketLabels.length; bucket++) {
+                report.append("\n").append(bucketLabels[bucket]).append(": ")
+                        .append(v.confidenceBucketCounts[bucket]).append(" / ");
+                if (v.confidenceBucketCounts[bucket] == 0) report.append("— / —");
+                else report.append(String.format(Locale.US, "%.1f%% / %.1f%%",
+                        v.confidenceBucketMeanConfidence[bucket] * 100.0,
+                        v.confidenceBucketAccuracy[bucket] * 100.0));
+            }
+            report.append("\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
                     .append("\nAI paper-outcome accuracy: ")
                     .append(a.tradeSamples == 0 ? "Not available" :
                             String.format(Locale.US, "%.1f%%", a.tradeAccuracy))
