@@ -182,6 +182,7 @@ public class MainActivity extends Activity {
         refreshCharts(db);
         historyPanel.setText(loadHistory(db));
         modelPanel.setText(loadModels());
+        if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
         if (autoButton != null) updateAutoButton();
     }
 
@@ -343,22 +344,22 @@ public class MainActivity extends Activity {
                     averagePnl = trades.getDouble(3);
                 }
             } finally { trades.close(); }
-            if (i > 0) report.append("\\n\\n");
+            if (i > 0) report.append("\n\n");
             report.append(symbol)
-                    .append("\\nCandle examples learned: ").append(a.candleSamples)
-                    .append("\\nTraining-set directional accuracy: ")
+                    .append("\nCandle examples learned: ").append(a.candleSamples)
+                    .append("\nTraining-set directional accuracy: ")
                     .append(a.candleSamples == 0 ? "Not available" :
                             String.format(Locale.US, "%.1f%%", a.accuracy))
-                    .append("\\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
-                    .append("\\nAI paper-outcome accuracy: ")
+                    .append("\nAI-tagged paper outcomes learned: ").append(a.tradeSamples)
+                    .append("\nAI paper-outcome accuracy: ")
                     .append(a.tradeSamples == 0 ? "Not available" :
                             String.format(Locale.US, "%.1f%%", a.tradeAccuracy))
-                    .append("\\nAll closed paper trades: ").append(totalTrades)
+                    .append("\nAll closed paper trades: ").append(totalTrades)
                     .append(" · Wins: ").append(winningTrades)
-                    .append("\\nPaper-trade net P/L: ").append(money(netPnl))
+                    .append("\nPaper-trade net P/L: ").append(money(netPnl))
                     .append(" · Average: ").append(money(averagePnl));
         }
-        report.append("\\n\\nAccuracy figures are retrospective training diagnostics. They are not independently tested forecasts and do not guarantee future results.");
+        report.append("\n\nAccuracy figures are retrospective training diagnostics. They are not independently tested forecasts and do not guarantee future results.");
         return report.toString();
     }
 
