@@ -647,7 +647,6 @@ public class MainActivity extends Activity {
                     .append("\\nGross simulated profit: ").append(money(grossProfit))
                     .append("\\nGross simulated loss: ").append(money(grossLoss))
                     .append("\\nProfit factor: ").append(profitFactor)
-                    .append("\\nProfit factor: ").append(profitFactor)
                     .append("\\n\\nTRADE DURATION");
             Cursor durations = db.rawQuery(
                     "SELECT COALESCE(AVG(closed_at-opened_at),0)," +
