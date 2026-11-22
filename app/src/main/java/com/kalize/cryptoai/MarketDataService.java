@@ -40,7 +40,8 @@ public final class MarketDataService extends Service {
     private OnDeviceLearningEngine learner;
     private boolean stoppedByUser = false;
     private boolean connecting = false;
-    private int retrySeconds = 2;\n    private Thread backfillThread;
+    private int retrySeconds = 2;
+    private Thread backfillThread;
 
     private final Runnable reconnect = new Runnable() {
         @Override public void run() { connect(); }
@@ -55,7 +56,8 @@ public final class MarketDataService extends Service {
                 .connectTimeout(20, TimeUnit.SECONDS)
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .build();
-        createNotificationChannel();\n        startHistoricalBackfill();
+        createNotificationChannel();
+        startHistoricalBackfill();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -271,7 +273,8 @@ public final class MarketDataService extends Service {
         handler.removeCallbacks(reconnect);
         if (socket != null) socket.close(1000, "Service stopped");
         if (client != null) client.dispatcher().executorService().shutdown();
-        if (backfillThread != null) backfillThread.interrupt();\n        if (database != null) database.closeStore();
+        if (backfillThread != null) backfillThread.interrupt();
+        if (database != null) database.closeStore();
         super.onDestroy();
     }
 
