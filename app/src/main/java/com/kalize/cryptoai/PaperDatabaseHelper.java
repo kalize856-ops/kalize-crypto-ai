@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 /** Small local store designed for Android 4.4+; simulation data only. */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 8;
+    private static final int DB_VERSION = 9;
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long CANDLE_WINDOW_MS = 30L * DAY_MS;
 
@@ -38,6 +38,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE app_settings (" +
                 "setting_key TEXT PRIMARY KEY," +
                 "setting_value TEXT NOT NULL)");
+        createResetHistoryTable(db);
         ContentValues wallet = new ContentValues();
         wallet.put("id", 1);
         wallet.put("starting_balance", 100.0);
@@ -85,7 +86,16 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("UPDATE ai_models SET samples=0, correct=0, candle_samples=0, " +
                     "trade_samples=0, trade_correct=0");
         }
-        // Existing virtual balances, candles and trades are preserved.
+        if (oldVersion < 9) createResetHistoryTable(db);\n        // Existing virtual balances, candles and trades are preserved.
+    }
+
+    private void createResetHistoryTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS reset_history (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "reset_at INTEGER NOT NULL," +
+                "previous_cash REAL NOT NULL," +
+                "previous_closed_trades INTEGER NOT NULL," +
+                "previous_realized_pnl REAL NOT NULL)");
     }
 
     private void createTradesTable(SQLiteDatabase db) {
@@ -137,6 +147,19 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
+            Cursor previous = db.rawQuery("SELECT cash_balance FROM wallet WHERE id=1", null);
+            double previousCash = 100.0;
+            try { if (previous.moveToFirst()) previousCash = previous.getDouble(0); } finally { previous.close(); }
+            Cursor summary = db.rawQuery("SELECT COUNT(*), COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED'", null);
+            int previousTrades = 0;
+            double previousPnl = 0.0;
+            try { if (summary.moveToFirst()) { previousTrades = summary.getInt(0); previousPnl = summary.getDouble(1); } } finally { summary.close(); }
+            ContentValues history = new ContentValues();
+            history.put("reset_at", System.currentTimeMillis());
+            history.put("previous_cash", previousCash);
+            history.put("previous_closed_trades", previousTrades);
+            history.put("previous_realized_pnl", previousPnl);
+            db.insert("reset_history", null, history);
             db.delete("paper_trades", null, null);
             ContentValues wallet = new ContentValues();
             wallet.put("starting_balance", 100.0);
