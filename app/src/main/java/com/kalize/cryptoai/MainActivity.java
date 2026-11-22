@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
+    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
                         "\nCompleted 1m candles stored: " + database.getStoredCandleCount());
                 if (marketHealthPanel != null) marketHealthPanel.setText(loadMarketHealth());
                 if (marketConditionPanel != null) marketConditionPanel.setText(loadMarketConditions());
+                if (marketComparisonPanel != null) marketComparisonPanel.setText(loadMarketComparison());
                 refreshDashboard();
             }
         }
@@ -128,6 +129,7 @@ public class MainActivity extends Activity {
                 "Waiting for live coin prices…");
         marketHealthPanel = addPanel("MARKET DATA STATUS", loadMarketHealth());
         marketConditionPanel = addPanel("HOW THE MARKET HAS BEEN MOVING", loadMarketConditions());
+        marketComparisonPanel = addPanel("COMPARE THE MARKETS", loadMarketComparison());
         addText("PRICE CHART", 12, Color.rgb(22, 192, 140), true);
         addText("Choose a coin and time range. Drag the chart to look back at prices.", 12, Color.LTGRAY, false);
         addPairSelector();
@@ -301,6 +303,7 @@ public class MainActivity extends Activity {
         openTradesPanel.setText(open.toString());
         if (marketHealthPanel != null) marketHealthPanel.setText(loadMarketHealth());
         if (marketConditionPanel != null) marketConditionPanel.setText(loadMarketConditions());
+        if (marketComparisonPanel != null) marketComparisonPanel.setText(loadMarketComparison());
         refreshCharts(db);
         historyPanel.setText(loadHistory(db));
         if (performancePanel != null) performancePanel.setText(loadPerformanceReport(db));
@@ -819,6 +822,40 @@ public class MainActivity extends Activity {
         }
         out.append("\n\nThis describes recent price movement. It cannot predict the next move.");
         return out.toString();
+    }
+
+
+    private String loadMarketComparison() {
+        if (database == null) return "Waiting for market history…";
+        SQLiteDatabase db = database.getReadableDatabase();
+        String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+        StringBuilder report = new StringBuilder();
+        for (int s = 0; s < symbols.length; s++) {
+            String symbol = symbols[s];
+            Cursor c = db.rawQuery("SELECT open_time,high,low,close FROM candles WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 1440", new String[]{symbol});
+            ArrayList<double[]> rows = new ArrayList<double[]>();
+            try { while (c.moveToNext()) rows.add(new double[]{c.getLong(0), c.getDouble(1), c.getDouble(2), c.getDouble(3)}); }
+            finally { c.close(); }
+            if (report.length() > 0) report.append("\n\n");
+            report.append(symbol.replace("USDT", "/USDT"));
+            if (rows.size() < 2) { report.append("\nNot enough completed candles for comparison."); continue; }
+            double latest = rows.get(0)[3], high24 = 0.0, low24 = Double.MAX_VALUE;
+            for (int i = 0; i < rows.size(); i++) { high24 = Math.max(high24, rows.get(i)[1]); low24 = Math.min(low24, rows.get(i)[2]); }
+            int[] horizons = new int[]{15, 60, 1440};
+            String[] labels = new String[]{"15-minute change", "1-hour change", "24-hour change"};
+            for (int h = 0; h < horizons.length; h++) {
+                if (rows.size() <= horizons[h]) { report.append("\n").append(labels[h]).append(": Not enough data"); continue; }
+                double reference = rows.get(horizons[h])[3];
+                double change = reference > 0.0 ? ((latest - reference) / reference) * 100.0 : 0.0;
+                report.append("\n").append(labels[h]).append(": ").append(change >= 0.0 ? "+" : "").append(String.format(Locale.US, "%.2f%%", change));
+            }
+            double rangePercent = latest > 0.0 ? ((high24 - low24) / latest) * 100.0 : 0.0;
+            report.append("\n24-hour high / low: ").append(money(high24)).append(" / ").append(money(low24));
+            report.append("\n24-hour price range: ").append(String.format(Locale.US, "%.2f%%", rangePercent));
+            report.append("\nCompleted candles available: ").append(rows.size());
+        }
+        report.append("\n\nThese figures describe past movement only. A wider range means prices moved across a wider band; it does not tell us which way prices will move next.");
+        return report.toString();
     }
 
     private double latestPrice(SQLiteDatabase db, String symbol) {
