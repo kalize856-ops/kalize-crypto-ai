@@ -37,6 +37,13 @@ public final class CandlestickChartView extends View {
         invalidate();
     }
 
+    public void resetView() {
+        visibleCount = 80;
+        endOffset = 0;
+        selected = -1;
+        invalidate();
+    }
+
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float left=dp(12), right=getWidth()-dp(12), top=dp(29), bottom=getHeight()-dp(38);
