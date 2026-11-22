@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 /** Small local store designed for Android 4.4+; simulation data only. */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 6;
+    private static final int DB_VERSION = 7;
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final long CANDLE_WINDOW_MS = 30L * DAY_MS;
 
@@ -65,6 +65,15 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 6 && !hasColumn(db, "ai_models", "last_candle_time")) {
             db.execSQL("ALTER TABLE ai_models ADD COLUMN last_candle_time INTEGER NOT NULL DEFAULT 0");
+        }
+        if (oldVersion < 7) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS app_settings (" +
+                    "setting_key TEXT PRIMARY KEY," +
+                    "setting_value TEXT NOT NULL)");
+            ContentValues mode = new ContentValues();
+            mode.put("setting_key", "trading_mode");
+            mode.put("setting_value", "paper_only");
+            db.insertWithOnConflict("app_settings", null, mode, SQLiteDatabase.CONFLICT_IGNORE);
         }
         // Existing virtual balances, candles and trades are preserved.
     }
