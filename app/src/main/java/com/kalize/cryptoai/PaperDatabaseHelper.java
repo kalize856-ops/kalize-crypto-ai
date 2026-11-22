@@ -132,6 +132,31 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         finally { cursor.close(); }
     }
 
+    /** Starts a fresh virtual account while retaining candles and AI learning. */
+    public void resetPaperSimulation() {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete("paper_trades", null, null);
+            ContentValues wallet = new ContentValues();
+            wallet.put("starting_balance", 100.0);
+            wallet.put("cash_balance", 100.0);
+            wallet.put("updated_at", System.currentTimeMillis());
+            db.update("wallet", wallet, "id=1", null);
+            ContentValues auto = new ContentValues();
+            auto.put("setting_key", "auto_paper_trading");
+            auto.put("setting_value", "false");
+            db.insertWithOnConflict("app_settings", null, auto, SQLiteDatabase.CONFLICT_REPLACE);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public boolean isVirtualCashDepleted() {
+        return getCashBalance() <= 0.005;
+    }
+
     public int getClosedTradeCount() {
         Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT COUNT(*) FROM paper_trades WHERE status = 'CLOSED'", null);
