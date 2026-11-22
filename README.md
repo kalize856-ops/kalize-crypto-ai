@@ -130,3 +130,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Adds an observed one-minute candle coverage estimate beside each symbol's recent gap scan.
 - Coverage is calculated from observed candle timestamps and estimated missing-minute intervals within the bounded scan.
 - The percentage describes historical data continuity only; it is not a forecast or trade signal.
+
+
+### Build 0.5.18 — descriptive recent market conditions
+- Adds a separate market-conditions panel for BTCUSDT, ETHUSDT and SOLUSDT.
+- Measures average high-low range percentage and average absolute close-to-close percentage change over up to 60 completed one-minute candles.
+- Shows the number of candles measured and clearly labels the figures as descriptive historical statistics, not forecasts or trading instructions.
+- Uses bounded SQLite reads and refreshes with the existing dashboard/feed updates.
