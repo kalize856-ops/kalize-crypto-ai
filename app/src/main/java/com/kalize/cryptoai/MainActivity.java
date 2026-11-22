@@ -16,6 +16,7 @@ import android.content.IntentFilter;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.Button;
@@ -90,19 +91,19 @@ public class MainActivity extends Activity {
         LinearLayout dashboardRoot = new LinearLayout(this);
         dashboardRoot.setOrientation(wideDashboard
                 ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
-        dashboardRoot.setBackgroundColor(Color.rgb(13, 19, 29));
+        dashboardRoot.setBackgroundColor(Color.rgb(10, 14, 24));
 
         LinearLayout leftColumn = new LinearLayout(this);
         leftColumn.setOrientation(LinearLayout.VERTICAL);
         leftColumn.setPadding(dp(wideDashboard ? 12 : 18), dp(22),
                 dp(wideDashboard ? 8 : 18), dp(28));
-        leftColumn.setBackgroundColor(Color.rgb(13, 19, 29));
+        leftColumn.setBackgroundColor(Color.rgb(10, 14, 24));
 
         if (wideDashboard) {
             LinearLayout rightColumn = new LinearLayout(this);
             rightColumn.setOrientation(LinearLayout.VERTICAL);
             rightColumn.setPadding(dp(8), dp(22), dp(12), dp(28));
-            rightColumn.setBackgroundColor(Color.rgb(13, 19, 29));
+            rightColumn.setBackgroundColor(Color.rgb(10, 14, 24));
             dashboardRoot.addView(leftColumn, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
             dashboardRoot.addView(rightColumn, new LinearLayout.LayoutParams(
@@ -144,10 +145,11 @@ public class MainActivity extends Activity {
         addIntervalSelector();
         addRangeSelector();
         priceChart = new CandlestickChartView(this);
-        priceChart.setBackgroundColor(Color.rgb(27, 39, 54));
+        priceChart.setBackground(makeRoundedBackground(Color.rgb(20, 28, 43), 18));
         content.addView(priceChart, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(wideDashboard ? 300 : 245)));
         Button resetChartView = new Button(this);
+        styleButton(resetChartView, false);
         resetChartView.setText("Reset chart zoom and position");
         resetChartView.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) { priceChart.resetView(); }
@@ -159,7 +161,7 @@ public class MainActivity extends Activity {
         addText("VIRTUAL ACCOUNT HISTORY", 12, Color.rgb(22, 192, 140), true);
         addText("See how your practice balance has changed. Past results do not predict future results.", 12, Color.LTGRAY, false);
         equityChart = new SimpleLineChartView(this);
-        equityChart.setBackgroundColor(Color.rgb(27, 39, 54));
+        equityChart.setBackground(makeRoundedBackground(Color.rgb(20, 28, 43), 18));
         content.addView(equityChart, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(wideDashboard ? 230 : 190)));
         addSpace(14);
@@ -194,6 +196,7 @@ public class MainActivity extends Activity {
         addText("The bot makes practice trades by itself using live coin prices. You cannot place trades manually. It never uses real money or places real exchange orders.",
                 13, Color.LTGRAY, false);
         Button resetSimulation = new Button(this);
+        styleButton(resetSimulation, true);
         resetSimulation.setText("Start over · reset practice money to $100");
         resetSimulation.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) {
@@ -214,6 +217,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         Button refresh = new Button(this);
+        styleButton(refresh, true);
         refresh.setText("Refresh prices and account");
         refresh.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) { refreshDashboard(); }
@@ -425,6 +429,7 @@ public class MainActivity extends Activity {
         String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
         for (final String symbol : symbols) {
             Button button = new Button(this);
+            styleButton(button, false);
             button.setText(symbol.replace("USDT", "/USDT"));
             button.setTextSize(10);
             button.setOnClickListener(new View.OnClickListener() {
@@ -450,6 +455,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < intervals.length; i++) {
             final int interval = intervals[i];
             Button button = new Button(this);
+            styleButton(button, false);
             button.setText(labels[i]);
             button.setTextSize(10);
             button.setOnClickListener(new View.OnClickListener() {
@@ -473,6 +479,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < ranges.length; i++) {
             final int range = ranges[i];
             Button button = new Button(this);
+            styleButton(button, false);
             button.setText(labels[i]);
             button.setTextSize(10);
             button.setOnClickListener(new View.OnClickListener() {
@@ -684,6 +691,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < filters.length; i++) {
             final String filter = filters[i];
             Button button = new Button(this);
+            styleButton(button, false);
             button.setText(labels[i]);
             button.setTextSize(11);
             button.setOnClickListener(new View.OnClickListener() {
@@ -699,6 +707,7 @@ public class MainActivity extends Activity {
         }
         content.addView(row);
         Button exportButton = new Button(this);
+        styleButton(exportButton, false);
         exportButton.setText("Export journal as CSV");
         exportButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) {
@@ -721,6 +730,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < ranges.length; i++) {
             final int range = ranges[i];
             Button button = new Button(this);
+            styleButton(button, false);
             button.setText(labels[i]);
             button.setTextSize(10);
             button.setOnClickListener(new View.OnClickListener() {
@@ -1074,25 +1084,51 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    private GradientDrawable makeRoundedBackground(int color, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(dp(radiusDp));
+        drawable.setStroke(dp(1), Color.rgb(39, 49, 69));
+        return drawable;
+    }
+
+    private void styleButton(Button button, boolean primary) {
+        button.setAllCaps(false);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(13);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setGravity(android.view.Gravity.CENTER);
+        button.setPadding(dp(14), dp(10), dp(14), dp(10));
+        button.setMinHeight(dp(46));
+        button.setBackground(makeRoundedBackground(
+                primary ? Color.rgb(111, 82, 220) : Color.rgb(31, 42, 63), 15));
+        if (Build.VERSION.SDK_INT >= 21) button.setElevation(dp(2));
+    }
+
     private TextView addPanel(String title, String body) {
         TextView heading = new TextView(this);
         heading.setText(title);
-        heading.setTextColor(Color.rgb(22, 192, 140));
-        heading.setTextSize(12);
-        heading.setPadding(dp(14), dp(14), dp(14), dp(5));
-        heading.setBackgroundColor(Color.rgb(27, 39, 54));
-        content.addView(heading);
+        heading.setTextColor(Color.rgb(171, 148, 255));
+        heading.setTextSize(11);
+        heading.setLetterSpacing(0.06f);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(dp(16), dp(15), dp(16), dp(4));
+        heading.setBackground(makeRoundedBackground(Color.rgb(20, 28, 43), 18));
+        LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        headingParams.topMargin = dp(5);
+        content.addView(heading, headingParams);
 
         TextView details = new TextView(this);
         details.setText(body);
-        details.setTextColor(Color.rgb(225, 231, 239));
+        details.setTextColor(Color.rgb(218, 225, 238));
         details.setTextSize(14);
         details.setLineSpacing(dp(5), 1.0f);
-        details.setPadding(dp(14), dp(8), dp(14), dp(16));
-        details.setBackgroundColor(Color.rgb(27, 39, 54));
+        details.setPadding(dp(16), dp(8), dp(16), dp(17));
+        details.setBackground(makeRoundedBackground(Color.rgb(20, 28, 43), 18));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        params.bottomMargin = dp(14);
+        params.bottomMargin = dp(13);
         content.addView(details, params);
         return details;
     }

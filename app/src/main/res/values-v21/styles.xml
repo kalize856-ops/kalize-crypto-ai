@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Enhanced system-bar styling on Android 5.0 and newer. -->
-    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <!-- Material dark theme with premium purple accents on Android 5.0+. -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#16A085</item>
-        <item name="android:statusBarColor">#101820</item>
-        <item name="android:navigationBarColor">#101820</item>
+        <item name="android:colorAccent">#9D7DFF</item>
+        <item name="android:statusBarColor">#080C15</item>
+        <item name="android:navigationBarColor">#080C15</item>
+        <item name="android:windowBackground">#0A0E18</item>
+        <item name="android:colorBackground">#0A0E18</item>
+        <item name="android:textColorPrimary">#F2F4FA</item>
+        <item name="android:textColorSecondary">#AAB4C7</item>
     </style>
 </resources>
