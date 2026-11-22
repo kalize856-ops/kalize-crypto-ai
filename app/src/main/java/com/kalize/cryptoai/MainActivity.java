@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
+    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, decisionJournalPanel, learningReportPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 360;
@@ -171,6 +171,7 @@ public class MainActivity extends Activity {
         }
 
         modelPanel = addPanel("WHAT THE AI THINKS", "Loading local model…");
+        decisionJournalPanel = addPanel("RECENT AI DECISIONS", "Waiting for the first practice decision…");
         learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
         openTradesPanel = addPanel("TRADES THE AI IS WATCHING", "No open positions.");
         performancePanel = addPanel("TRADE RESULTS", "Waiting for closed paper trades…");
@@ -413,6 +414,7 @@ public class MainActivity extends Activity {
         if (riskExplanationPanel != null) riskExplanationPanel.setText(loadRiskExplanation());
         if (resetHistoryPanel != null) resetHistoryPanel.setText(loadResetHistory());
         modelPanel.setText(loadModels());
+        if (decisionJournalPanel != null) decisionJournalPanel.setText(loadDecisionJournal(db));
         if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
     }
 
@@ -572,6 +574,54 @@ public class MainActivity extends Activity {
             equityChart.setSeries(values, "Virtual equity after closed trades · starting balance $100",
                     Color.rgb(93, 160, 255));
         }
+    }
+
+    /** Plain-language journal of the latest automatic virtual decisions. */
+    private String loadDecisionJournal(SQLiteDatabase db) {
+        Cursor c = db.rawQuery(
+                "SELECT symbol,side,entry_price,exit_price,realized_pnl,status,opened_at,closed_at,ai_probability,stop_loss " +
+                "FROM paper_trades ORDER BY COALESCE(closed_at,opened_at) DESC,id DESC LIMIT 5", null);
+        StringBuilder out = new StringBuilder();
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("MMM d, HH:mm", Locale.US);
+        try {
+            while (c.moveToNext()) {
+                if (out.length() > 0) out.append("\n\n");
+                String symbol = c.getString(0).replace("USDT", "/USDT");
+                String side = c.getString(1);
+                double entry = c.getDouble(2);
+                double exit = c.isNull(3) ? 0.0 : c.getDouble(3);
+                double pnl = c.getDouble(4);
+                String status = c.getString(5);
+                long opened = c.getLong(6);
+                long closed = c.isNull(7) ? 0L : c.getLong(7);
+                double probability = c.getDouble(8);
+                double stop = c.getDouble(9);
+                out.append(symbol).append(" · ").append("OPEN".equals(status) ? "In progress" : "Finished")
+                        .append("\nDirection: ").append("BUY".equalsIgnoreCase(side) ? "Price going up" : "Price going down")
+                        .append("\nStarted: ").append(format.format(new java.util.Date(opened)));
+                if (probability >= 0.0 && probability <= 1.0) {
+                    out.append("\nAI estimate at entry: ").append(String.format(Locale.US, "%.0f%%", probability * 100.0));
+                } else {
+                    out.append("\nAI estimate at entry: Not saved");
+                }
+                out.append("\nEntry price: ").append(money(entry));
+                if ("OPEN".equals(status)) {
+                    out.append("\nCurrent status: AI is still watching this practice trade");
+                    if (stop > 0.0) out.append("\nSafety exit level: ").append(money(stop));
+                } else {
+                    out.append("\nFinished: ").append(closed > 0L ? format.format(new java.util.Date(closed)) : "Time not saved")
+                            .append("\nExit price: ").append(money(exit))
+                            .append("\nPractice result: ").append(pnl >= 0.0 ? "Gain " : "Loss ").append(money(pnl));
+                }
+            }
+        } finally {
+            c.close();
+        }
+        if (out.length() == 0) {
+            return "No practice decisions yet. The automatic bot will list its latest actions here when it has enough market data.\n\nAll entries are virtual only.";
+        }
+        out.append("\n\nThese are the bot's latest simulated actions, not instructions to trade. AI estimates can be wrong.");
+        return out.toString();
     }
 
     private String loadModels() {
