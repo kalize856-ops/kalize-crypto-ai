@@ -117,3 +117,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Uses Android's document picker so the user chooses where to save the file (API 19+).
 - Exports the selected filter's records with trade ID, symbol, side, quantity, entry/exit prices, stop-loss, realized P/L, fees, status, epoch-millisecond timestamps and AI metadata.
 - CSV values are escaped safely; export remains strictly virtual and does not connect to an exchange.
+
+
+### Build 0.5.16 — recent candle-gap integrity scan
+- Extends Market Data Health with a bounded scan of up to the latest 61 one-minute candle timestamps per supported market.
+- Reports recent gap events, estimated missing one-minute candles, and approximate age of the latest detected gap.
+- Keeps the scan local and read-only; it does not create synthetic candles or treat data gaps as trading signals.
+- Older-device impact is bounded to at most 61 timestamp rows per coin during a health refresh.
