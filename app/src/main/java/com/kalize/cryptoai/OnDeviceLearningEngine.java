@@ -41,8 +41,8 @@ public final class OnDeviceLearningEngine {
         String modelKey=key(symbol,interval);
         Model m=load(db,modelKey);
         Cursor c=db.rawQuery("SELECT open_time,close,high,low,volume FROM candles " +
-                "WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT "+MAX_CANDLES,
-                new String[]{symbol,interval});
+                "WHERE symbol=? AND interval=? AND open_time>? ORDER BY open_time ASC LIMIT "+MAX_CANDLES,
+                new String[]{symbol,interval,String.valueOf(m.lastCandleTime)}
         long[] times=new long[MAX_CANDLES];
         double[] close=new double[MAX_CANDLES],high=new double[MAX_CANDLES],
                 low=new double[MAX_CANDLES],volume=new double[MAX_CANDLES];
@@ -53,7 +53,7 @@ public final class OnDeviceLearningEngine {
                 high[n]=c.getDouble(2);low[n]=c.getDouble(3);volume[n]=c.getDouble(4);n++;
             }
         } finally { c.close(); }
-        reverse(times);reverse(close);reverse(high);reverse(low);reverse(volume);
+        
         int added=0;
         for(int i=6;i<n-1;i++) {
             if(times[i]<=m.lastCandleTime) continue;
