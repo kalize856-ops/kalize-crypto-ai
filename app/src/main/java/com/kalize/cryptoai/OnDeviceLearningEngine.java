@@ -9,14 +9,15 @@ import java.util.Locale;
 public final class OnDeviceLearningEngine {
     private static final int MAX_CANDLES = 1200;
     private static final double LEARNING_RATE = 0.04;
+    private static final double TRADE_LEARNING_RATE = 0.08;
     private final PaperDatabaseHelper helper;
 
     public static final class Assessment {
         public final String symbol, signal;
-        public final double confidence, accuracy;
+        public final double confidence, accuracy, probability;
         public final int samples;
-        Assessment(String s, String g, double c, int n, double a) {
-            symbol=s; signal=g; confidence=c; samples=n; accuracy=a;
+        Assessment(String s, String g, double c, int n, double a, double p) {
+            symbol=s; signal=g; confidence=c; samples=n; accuracy=a; probability=p;
         }
     }
     private static final class Model {
@@ -63,8 +64,10 @@ public final class OnDeviceLearningEngine {
         return added;
     }
 
+    /** Returns the current model estimate for use by simulated trades. */
     public Assessment assess(String symbol,String interval) {
-        if(empty(symbol)||empty(interval)) return new Assessment("","INSUFFICIENT DATA",0,0,0);
+        if(empty(symbol)||empty(interval))
+            return new Assessment("","INSUFFICIENT DATA",0,0,0,0.5);
         SQLiteDatabase db=helper.getReadableDatabase();
         Model m=load(db,key(symbol,interval));
         Cursor c=db.rawQuery("SELECT close,high,low,volume FROM candles WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 7",
@@ -75,14 +78,37 @@ public final class OnDeviceLearningEngine {
             close[n]=c.getDouble(0);high[n]=c.getDouble(1);low[n]=c.getDouble(2);volume[n]=c.getDouble(3);n++;
         }} finally {c.close();}
         if(n<7||m.samples<20) return new Assessment(symbol,"LEARNING",0,m.samples,
-                m.samples==0?0:100.0*m.correct/m.samples);
-        double[] x=features(reverse(close),reverse(high),reverse(low),reverse(volume),6);
-        double p=probability(m,x);
+                m.samples==0?0:100.0*m.correct/m.samples,0.5);
+        double p=probability(m,features(reverse(close),reverse(high),reverse(low),reverse(volume),6));
         String signal=p>0.58?"UPWARD BIAS":(p<0.42?"DOWNWARD BIAS":"NEUTRAL");
         return new Assessment(symbol,signal,Math.abs(p-0.5)*200,m.samples,
-                m.samples==0?0:100.0*m.correct/m.samples);
+                m.samples==0?0:100.0*m.correct/m.samples,p);
     }
+
+    /**
+     * Feeds a completed paper trade back into the model that generated its signal.
+     * This is online statistical feedback, not a guarantee of future performance.
+     */
+    public boolean learnFromPaperOutcome(String symbol,String interval,
+                                         double predictedProbability,double realizedPnl) {
+        if(empty(symbol)||empty(interval)||Double.isNaN(predictedProbability)||
+                Double.isInfinite(predictedProbability)||predictedProbability<0||
+                predictedProbability>1||Double.isNaN(realizedPnl)||
+                Double.isInfinite(realizedPnl)) return false;
+        SQLiteDatabase db=helper.getWritableDatabase();
+        String modelKey=key(symbol,interval);
+        Model m=load(db,modelKey);
+        int actual=realizedPnl>0?1:0;
+        int predicted=predictedProbability>=0.5?1:0;
+        if(actual==predicted) m.correct++;
+        m.bias=clamp(m.bias+TRADE_LEARNING_RATE*(actual-predictedProbability),-3,3);
+        m.samples++;
+        save(db,modelKey,m);
+        return true;
+    }
+
     private double[] features(double[] c,double[] h,double[] l,double[] v,int i) {
+        if(c[i-3]==0||c[i-6]==0||c[i]==0) return new double[]{0,0,0};
         double momentum=(c[i]-c[i-3])/c[i-3];
         double trend=(c[i]-c[i-6])/c[i-6];
         double range=(h[i]-l[i])/c[i];
