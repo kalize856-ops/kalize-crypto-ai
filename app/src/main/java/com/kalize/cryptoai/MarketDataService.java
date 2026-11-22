@@ -163,7 +163,7 @@ public final class MarketDataService extends Service {
         });
     }
 
-    /** Downloads up to 30 days of completed one-minute candles without blocking the feed. */
+    /** Downloads up to 7 days of completed one-minute candles without blocking the feed. */
     private void startHistoricalBackfill() {
         if (stoppedByUser || (backfillThread != null && backfillThread.isAlive())) return;
         handler.removeCallbacks(backfillRetry);
@@ -172,7 +172,7 @@ public final class MarketDataService extends Service {
                 String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
                 try {
                     long end = System.currentTimeMillis();
-                    long start = end - 30L * 24L * 60L * 60L * 1000L;
+                    long start = end - 7L * 24L * 60L * 60L * 1000L;
                     for (String symbol : symbols) {
                         long cursor = start;
                         while (!Thread.currentThread().isInterrupted() && cursor < end) {
@@ -224,7 +224,7 @@ public final class MarketDataService extends Service {
                             if (learned == 0) break;
                         }
                     }
-                    broadcast("30-day history ready · AI training caught up");
+                    broadcast("7-day history ready · AI training caught up");
                     updateNotification("30-day history ready · live feed active");
                 } catch (Exception error) {
                     broadcast("Historical backfill paused · will retry in 5 minutes · live feed remains active");
