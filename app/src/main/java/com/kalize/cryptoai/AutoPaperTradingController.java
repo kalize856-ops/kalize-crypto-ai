@@ -11,7 +11,8 @@ import java.util.ArrayList;
 public final class AutoPaperTradingController {
     private static final String STOP_DISTANCE = "0.02";
     private static final double MIN_CONFIDENCE = 5.0;
-    private static final long REENTRY_COOLDOWN_MS = 5L * 60L * 1000L;
+    // One completed 1-minute candle between entries: prevents instant churn without blocking the paper simulator for 5 minutes.
+    private static final long REENTRY_COOLDOWN_MS = 60L * 1000L;
 
     private final PaperDatabaseHelper database;
     private final PaperTradingEngine trading;
