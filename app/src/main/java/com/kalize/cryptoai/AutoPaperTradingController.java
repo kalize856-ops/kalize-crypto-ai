@@ -37,6 +37,18 @@ public final class AutoPaperTradingController {
     /** Called after each newly stored, completed one-minute candle. */
     public synchronized String onCompletedCandle(String symbol, String interval,
                                                    double marketPrice, double candleLow) {
+        String decision = evaluateCompletedCandle(symbol, interval, marketPrice, candleLow);
+        if (symbol != null && symbol.trim().length() > 0) {
+            database.putSetting("auto_last_decision_" + symbol,
+                    decision == null ? "No decision returned." : decision);
+            database.putSetting("auto_last_decision_at_" + symbol,
+                    String.valueOf(System.currentTimeMillis()));
+        }
+        return decision;
+    }
+
+    private String evaluateCompletedCandle(String symbol, String interval,
+                                            double marketPrice, double candleLow) {
         if (!finitePositive(marketPrice) || !finitePositive(candleLow))
             return "SIMULATION CHECK: skipped · invalid candle price.";
 
