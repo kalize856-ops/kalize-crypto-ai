@@ -36,7 +36,7 @@ public class PaperTradingLedgerTest {
         PaperTradingEngine engine = new PaperTradingEngine(database);
         double startingCash = database.getCashBalance();
 
-        PaperTradingEngine.Result opened = engine.buy("TESTUSDT", 1.0, 10.0, 9.0);
+        PaperTradingEngine.Result opened = engine.buy("TESTUSDT", 0.9, 10.0, 9.0);
         assertTrue(opened.message, opened.success);
         assertTrue(opened.tradeId > 0);
         assertTrue(database.getCashBalance() < startingCash);
