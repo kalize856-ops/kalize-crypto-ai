@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
     private PaperTradingEngine tradingEngine;
     private OnDeviceLearningEngine learningEngine;
     private AutoPaperTradingController autoTrader;
-    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, decisionJournalPanel, learningReportPanel, evolutionPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
+    private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, executionMonitorPanel, decisionJournalPanel, learningReportPanel, evolutionPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
     private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity, profitBubbleTrades, profitBubbleLatest;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
@@ -187,6 +187,7 @@ public class MainActivity extends Activity {
         }
 
         modelPanel = addPanel("WHAT THE AI THINKS", "Loading local model…");
+        executionMonitorPanel = addPanel("PAPER EXECUTION MONITOR", "Waiting for the first completed-candle execution check…");
         decisionJournalPanel = addPanel("RECENT AI DECISIONS", "Waiting for the first practice decision…");
         learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
         evolutionPanel = addPanel("AI EVOLUTION MODE", "Evaluating model quality and safe-improvement readiness…");
@@ -528,6 +529,7 @@ public class MainActivity extends Activity {
         if (riskExplanationPanel != null) riskExplanationPanel.setText(loadRiskExplanation());
         if (resetHistoryPanel != null) resetHistoryPanel.setText(loadResetHistory());
         modelPanel.setText(loadModels());
+        if (executionMonitorPanel != null) executionMonitorPanel.setText(loadAutoExecutionMonitor());
         if (decisionJournalPanel != null) decisionJournalPanel.setText(loadDecisionJournal(db));
         if (learningReportPanel != null) learningReportPanel.setText(loadLearningReport(db));
         if (evolutionPanel != null) evolutionPanel.setText(AiEvolutionEngine.buildReport(learningEngine));
@@ -740,6 +742,32 @@ public class MainActivity extends Activity {
         return out.toString();
     }
 
+    /** Shows the last persisted automatic execution decision for each paper pair. */
+    private String loadAutoExecutionMonitor() {
+        String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
+        StringBuilder out = new StringBuilder();
+        java.text.SimpleDateFormat format =
+                new java.text.SimpleDateFormat("MMM d, HH:mm:ss", Locale.US);
+        for (String symbol : symbols) {
+            if (out.length() > 0) out.append("\n\n");
+            String decision = database.getSetting("auto_last_decision_" + symbol, null);
+            String timestamp = database.getSetting("auto_last_decision_at_" + symbol, "0");
+            out.append(symbol.replace("USDT", "/USDT")).append("\n");
+            if (decision == null || decision.trim().length() == 0) {
+                out.append("No execution check recorded yet. Waiting for a new completed 1m candle.");
+            } else {
+                out.append("Last check: ");
+                try {
+                    long millis = Long.parseLong(timestamp);
+                    out.append(millis > 0 ? format.format(new java.util.Date(millis)) : "time unavailable");
+                } catch (Exception ignored) {
+                    out.append("time unavailable");
+                }
+                out.append("\n").append(decision);
+            }
+        }
+        return out.toString();
+    }
     private String loadModels() {
         String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
         StringBuilder result = new StringBuilder();
