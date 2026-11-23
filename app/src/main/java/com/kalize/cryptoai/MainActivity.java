@@ -466,7 +466,7 @@ public class MainActivity extends Activity {
         double marketValue = 0.0;
         double unrealized = 0.0;
         Cursor positions = db.rawQuery(
-                "SELECT symbol,quantity,entry_price,fees FROM paper_trades WHERE status='OPEN' ORDER BY opened_at DESC",
+                "SELECT symbol,quantity,entry_price,fees,stop_loss FROM paper_trades WHERE status='OPEN' ORDER BY opened_at DESC",
                 null);
         StringBuilder open = new StringBuilder();
         try {
@@ -475,18 +475,29 @@ public class MainActivity extends Activity {
                 double quantity = positions.getDouble(1);
                 double entry = positions.getDouble(2);
                 double entryFees = positions.getDouble(3);
+                double stop = positions.getDouble(4);
                 double price = latestPrice(db, symbol);
-                if (price <= 0) price = entry;
+                long candleAge = latestCandleAge(db, symbol);
+                boolean hasMarketPrice = price > 0.0;
+                if (!hasMarketPrice) price = entry;
                 double value = quantity * price;
                 double pnl = quantity * (price - entry) - entryFees - value * PaperTradingEngine.FEE_RATE;
+                double target = entry + ((entry - stop) * 2.0);
                 marketValue += value;
                 unrealized += pnl;
                 if (open.length() > 0) open.append("\n\n");
                 open.append(symbol.replace("USDT", "/USDT"))
-                        .append("\nStatus: AI is monitoring this trade")
-                        .append("\nCurrent result: ").append(pnl > 0.0 ? "Profit " :
+                        .append("\nEntry: ").append(money(entry))
+                        .append("\nLatest price: ").append(hasMarketPrice ? money(price) : "Waiting for market data")
+                        .append(hasMarketPrice && candleAge > 180000L ? " · STALE DATA" : "")
+                        .append("\nStop-loss: ").append(money(stop))
+                        .append("\nTake-profit target: ").append(money(target))
+                        .append("\nEstimated net result: ").append(pnl > 0.0 ? "Profit " :
                                 (pnl < 0.0 ? "Loss " : "Around break-even "))
-                        .append(money(pnl));
+                        .append(money(pnl))
+                        .append("\nStatus: ").append(hasMarketPrice && candleAge <= 180000L
+                                ? "AI is monitoring using recent market data"
+                                : "Market price is unavailable or stale; estimate may be outdated");
             }
         } finally { positions.close(); }
         if (open.length() == 0) open.append("No open positions.");
@@ -1172,6 +1183,16 @@ public class MainActivity extends Activity {
         }
         report.append("\n\nThese figures describe past movement only. A wider range means prices moved across a wider band; it does not tell us which way prices will move next.");
         return report.toString();
+    }
+
+    private long latestCandleAge(SQLiteDatabase db, String symbol) {
+        Cursor c = db.rawQuery(
+                "SELECT open_time FROM candles WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 1",
+                new String[]{symbol});
+        try {
+            if (!c.moveToFirst()) return Long.MAX_VALUE;
+            return Math.max(0L, System.currentTimeMillis() - c.getLong(0));
+        } finally { c.close(); }
     }
 
     private double latestPrice(SQLiteDatabase db, String symbol) {
