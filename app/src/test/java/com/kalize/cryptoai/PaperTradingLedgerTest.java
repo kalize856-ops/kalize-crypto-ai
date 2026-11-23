@@ -152,7 +152,7 @@ public class PaperTradingLedgerTest {
             double close = 100.0 * Math.pow(1.05, i);
             long openTime = now - (6L - i) * 60000L - 10000L;
             assertTrue(database.saveCandle(symbol, "1m", openTime,
-                    previous, close * 1.001, close * 0.999, close, 10.0 + i));
+                    previous, Math.max(previous, close) * 1.001,\n                    Math.min(previous, close) * 0.999, close, 10.0 + i));
             previous = close;
         }
     }
