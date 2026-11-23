@@ -325,16 +325,18 @@ public final class MarketDataService extends Service {
         StringBuilder report = new StringBuilder("STARTUP PAPER-TRADING CHECK");
         for (String symbol : symbols) {
             Cursor cursor = database.getReadableDatabase().rawQuery(
-                    "SELECT close, low FROM candles WHERE symbol=? AND interval='1m' " +
+                    "SELECT close, low, high FROM candles WHERE symbol=? AND interval='1m' " +
                     "ORDER BY open_time DESC LIMIT 1",
                     new String[]{symbol});
             double close = 0.0;
             double low = 0.0;
+            double high = 0.0;
             boolean found = false;
             try {
                 if (cursor.moveToFirst()) {
                     close = cursor.getDouble(0);
                     low = cursor.getDouble(1);
+                    high = cursor.getDouble(2);
                     found = true;
                 }
             } finally {
@@ -342,7 +344,7 @@ public final class MarketDataService extends Service {
             }
             report.append("\\n\\n").append(symbol).append(": ");
             if (found) {
-                report.append(autoTrader.onCompletedCandle(symbol, "1m", close, low));
+                report.append(autoTrader.onCompletedCandle(symbol, "1m", close, low, high));
             } else {
                 report.append("ENTRY WAITING · no completed candle is stored.");
             }
@@ -377,13 +379,14 @@ public final class MarketDataService extends Service {
             double low = number(k.optString("l"));
             double close = number(k.optString("c"));
             double candleLow = number(k.optString("l"));
+            double candleHigh = number(k.optString("h"));
             double volume = number(k.optString("v"));
             if (openTime <= 0 || !database.saveCandleIfNew(
                     symbol, "1m", openTime, open, high, low, close, volume)) return;
 
             // The just-closed candle supplies the next label for the prior candle.
             learner.learn(symbol, "1m");
-            String automation = autoTrader.onCompletedCandle(symbol, "1m", close, candleLow);
+            String automation = autoTrader.onCompletedCandle(symbol, "1m", close, candleLow, candleHigh);
             broadcast(symbol + " · 1m candle saved\n" + automation);
             updateNotification("Live · " + symbol + " candle saved");
         } catch (Exception ignored) {
