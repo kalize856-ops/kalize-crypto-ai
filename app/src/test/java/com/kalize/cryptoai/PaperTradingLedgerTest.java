@@ -100,4 +100,73 @@ public class PaperTradingLedgerTest {
         assertEquals(1, removed);
         assertEquals(1, database.getStoredCandleCount());
     }
+    @Test
+    public void automaticPaperControllerOpensPositionFromFreshUpwardSignal() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+
+        String decision = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+
+        assertTrue("Expected an automatic simulated entry, got: " + decision,
+                decision.contains("PAPER TRADE OPENED"));
+        assertEquals(1, new PaperTradingEngine(database).getOpenPositionCount());
+        assertTrue(database.getCashBalance() < 100.0);
+        assertTrue(database.getSetting("auto_last_decision_BTCUSDT", "").contains("PAPER TRADE OPENED"));
+    }
+
+    @Test
+    public void automaticPaperControllerClosesPositionWhenStopIsReached() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+        String opened = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+        assertTrue(opened, opened.contains("PAPER TRADE OPENED"));
+
+        SQLiteDatabase db = database.getReadableDatabase();
+        Cursor position = db.rawQuery(
+                "SELECT stop_loss FROM paper_trades WHERE symbol='BTCUSDT' AND status='OPEN'",
+                null);
+        double stop;
+        try {
+            assertTrue(position.moveToFirst());
+            stop = position.getDouble(0);
+        } finally {
+            position.close();
+        }
+
+        String exit = controller.onCompletedCandle(
+                "BTCUSDT", "1m", stop * 0.99, stop * 0.99, stop * 0.995);
+
+        assertTrue("Expected stop execution, got: " + exit, exit.contains("STOP EXECUTED"));
+        assertEquals(0, new PaperTradingEngine(database).getOpenPositionCount());
+        assertEquals(1, database.getClosedTradeCount());
+    }
+
+    private void seedStrongUpwardCandles(String symbol) {
+        long now = System.currentTimeMillis();
+        double previous = 100.0;
+        for (int i = 0; i < 7; i++) {
+            double close = 100.0 * Math.pow(1.05, i);
+            long openTime = now - (6L - i) * 60000L - 10000L;
+            assertTrue(database.saveCandle(symbol, "1m", openTime,
+                    previous, close * 1.001, close * 0.999, close, 10.0 + i));
+            previous = close;
+        }
+    }
+
+    private double latestClose(String symbol) {
+        Cursor c = database.getReadableDatabase().rawQuery(
+                "SELECT close FROM candles WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 1",
+                new String[]{symbol});
+        try {
+            assertTrue(c.moveToFirst());
+            return c.getDouble(0);
+        } finally {
+            c.close();
+        }
+    }
+
 }
