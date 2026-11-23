@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -301,6 +302,11 @@ public final class MarketDataService extends Service {
                             if (learned == 0) break;
                         }
                     }
+                    // Evaluate the latest completed candle immediately after backfill.
+                    // Previously automation waited for the NEXT websocket candle, so
+                    // an already-populated dashboard could show AI signals but no
+                    // execution decision until another live kline event arrived.
+                    evaluateLatestStoredCandles(symbols);
                     broadcast("1-hour history ready · AI learning active");
                     updateNotification("1-hour history ready · live feed active");
                 } catch (Exception error) {
@@ -312,6 +318,34 @@ public final class MarketDataService extends Service {
         }, "Kalize-History-Backfill");
         backfillThread.setDaemon(true);
         backfillThread.start();
+    }
+
+    /** Runs one paper-entry evaluation for each pair after historical candles load. */
+    private void evaluateLatestStoredCandles(String[] symbols) {
+        for (String symbol : symbols) {
+            Cursor cursor = database.getReadableDatabase().rawQuery(
+                    "SELECT close, low FROM candles WHERE symbol=? AND interval='1m' " +
+                    "ORDER BY open_time DESC LIMIT 1",
+                    new String[]{symbol});
+            double close = 0.0;
+            double low = 0.0;
+            boolean found = false;
+            try {
+                if (cursor.moveToFirst()) {
+                    close = cursor.getDouble(0);
+                    low = cursor.getDouble(1);
+                    found = true;
+                }
+            } finally {
+                cursor.close();
+            }
+            if (found) {
+                String decision = autoTrader.onCompletedCandle(symbol, "1m", close, low);
+                broadcast(symbol + " · startup paper evaluation\n" + decision);
+            } else {
+                broadcast(symbol + " · startup paper evaluation\nENTRY WAITING · no completed candle is stored.");
+            }
+        }
     }
 
     private void handleMessage(String raw) {
