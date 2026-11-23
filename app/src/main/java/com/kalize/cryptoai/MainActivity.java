@@ -759,24 +759,57 @@ public class MainActivity extends Activity {
         StringBuilder out = new StringBuilder();
         java.text.SimpleDateFormat format =
                 new java.text.SimpleDateFormat("MMM d, HH:mm:ss", Locale.US);
+        SQLiteDatabase db = database.getReadableDatabase();
         for (String symbol : symbols) {
             if (out.length() > 0) out.append("\n\n");
+            OnDeviceLearningEngine.Assessment assessment =
+                    learningEngine.assess(symbol, "1m");
+            Cursor candles = db.rawQuery(
+                    "SELECT COUNT(*), MAX(open_time) FROM (SELECT open_time FROM candles " +
+                    "WHERE symbol=? AND interval='1m' ORDER BY open_time DESC LIMIT 3)",
+                    new String[]{symbol});
+            int candleCount = 0;
+            long latestCandle = 0L;
+            try {
+                if (candles.moveToFirst()) {
+                    candleCount = candles.getInt(0);
+                    if (!candles.isNull(1)) latestCandle = candles.getLong(1);
+                }
+            } finally { candles.close(); }
+            long candleAge = latestCandle > 0L
+                    ? Math.max(0L, System.currentTimeMillis() - latestCandle) : Long.MAX_VALUE;
             String decision = database.getSetting("auto_last_decision_" + symbol, null);
             String timestamp = database.getSetting("auto_last_decision_at_" + symbol, "0");
-            out.append(symbol.replace("USDT", "/USDT")).append("\n");
-            if (decision == null || decision.trim().length() == 0) {
-                out.append("No execution check recorded yet. Waiting for a new completed 1m candle.");
+
+            out.append(symbol.replace("USDT", "/USDT"))
+                    .append("\nCurrent AI signal: ").append(assessment.signal)
+                    .append(" · confidence: ")
+                    .append(String.format(Locale.US, "%.1f%%", assessment.confidence))
+                    .append("\nLearning examples: ").append(assessment.candleSamples)
+                    .append("\nEntry data: ").append(candleCount).append("/3 recent candles");
+            if (latestCandle <= 0L) {
+                out.append(" · waiting for first completed candle");
+            } else if (candleAge > 180000L) {
+                out.append(" · STALE (").append(candleAge / 1000L).append("s old)");
             } else {
-                out.append("Last check: ");
+                out.append(" · fresh (").append(candleAge / 1000L).append("s old)");
+            }
+            out.append("\nLast execution check: ");
+            if (decision == null || decision.trim().length() == 0) {
+                out.append("No execution check recorded yet.");
+            } else {
                 try {
                     long millis = Long.parseLong(timestamp);
-                    out.append(millis > 0 ? format.format(new java.util.Date(millis)) : "time unavailable");
+                    out.append(millis > 0L
+                            ? format.format(new java.util.Date(millis))
+                            : "time unavailable");
                 } catch (Exception ignored) {
                     out.append("time unavailable");
                 }
                 out.append("\n").append(decision);
             }
         }
+        out.append("\n\nConfidence is not a trade by itself: an entry also needs an upward signal, fresh candles, available virtual cash, and simulator risk approval.");
         return out.toString();
     }
     private String loadModels() {
