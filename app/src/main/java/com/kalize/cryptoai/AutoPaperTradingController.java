@@ -110,8 +110,9 @@ public final class AutoPaperTradingController {
                     format(assessment.confidence) + "%.";
         }
 
-        if (!hasHealthyRecentCandles(symbol, interval)) {
-            return "ENTRY BLOCKED · waiting for 3 fresh consecutive candles.";
+        String candleReadiness = getRecentCandleReadiness(symbol, interval);
+        if (candleReadiness != null) {
+            return "ENTRY BLOCKED · " + candleReadiness;
         }
 
         long cooldownRemaining = getCooldownRemaining(symbol);
@@ -155,7 +156,12 @@ public final class AutoPaperTradingController {
                 format(assessment.confidence) + "% · " + opened.message;
     }
 
-    private boolean hasHealthyRecentCandles(String symbol, String interval) {
+    /**
+     * Explains exactly why the live-data gate is closed. A dashboard model estimate
+     * can be displayed from historical data, but automated entries require three
+     * consecutive, recent one-minute candles.
+     */
+    private String getRecentCandleReadiness(String symbol, String interval) {
         SQLiteDatabase db = database.getReadableDatabase();
         Cursor cursor = db.rawQuery(
                 "SELECT open_time FROM candles WHERE symbol=? AND interval=? ORDER BY open_time DESC LIMIT 3",
@@ -167,14 +173,25 @@ public final class AutoPaperTradingController {
         } finally {
             cursor.close();
         }
-        if (count < 3) return false;
-        long latestAge = System.currentTimeMillis() - times[0];
-        if (latestAge < 0L || latestAge > 180000L) return false;
+        if (count < 3) {
+            return "only " + count + "/3 completed candles stored; waiting for " +
+                    (3 - count) + " more live candle(s).";
+        }
+        long now = System.currentTimeMillis();
+        long latestAge = now - times[0];
+        if (latestAge < 0L) return "latest candle timestamp is in the future; checking market clock.";
+        if (latestAge > 180000L) {
+            return "latest candle is stale (" + (latestAge / 1000L) +
+                    " seconds old); waiting for the live feed.";
+        }
         for (int i = 0; i < 2; i++) {
             long gap = times[i] - times[i + 1];
-            if (gap < 45000L || gap > 90000L) return false;
+            if (gap < 45000L || gap > 90000L) {
+                return "candle sequence has a " + (gap / 1000L) +
+                        " second gap; waiting for three consecutive 1m candles.";
+            }
         }
-        return true;
+        return null;
     }
 
     private void recordExit(String symbol) {
