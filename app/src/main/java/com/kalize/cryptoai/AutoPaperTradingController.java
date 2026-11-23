@@ -10,6 +10,7 @@ import java.util.ArrayList;
  */
 public final class AutoPaperTradingController {
     private static final String STOP_DISTANCE = "0.02";
+    private static final double TAKE_PROFIT_MULTIPLIER = 2.0;
     private static final double MIN_CONFIDENCE = 5.0;
     // One completed 1-minute candle between entries: prevents instant churn without blocking the paper simulator for 5 minutes.
     private static final long REENTRY_COOLDOWN_MS = 60L * 1000L;
@@ -37,7 +38,14 @@ public final class AutoPaperTradingController {
     /** Called after each newly stored, completed one-minute candle. */
     public synchronized String onCompletedCandle(String symbol, String interval,
                                                    double marketPrice, double candleLow) {
-        String decision = evaluateCompletedCandle(symbol, interval, marketPrice, candleLow);
+        return onCompletedCandle(symbol, interval, marketPrice, candleLow, marketPrice);
+    }
+
+    /** Evaluates exits against the completed candle's full high/low range. */
+    public synchronized String onCompletedCandle(String symbol, String interval,
+                                                   double marketPrice, double candleLow,
+                                                   double candleHigh) {
+        String decision = evaluateCompletedCandle(symbol, interval, marketPrice, candleLow, candleHigh);
         if (symbol != null && symbol.trim().length() > 0) {
             database.putSetting("auto_last_decision_" + symbol,
                     decision == null ? "No decision returned." : decision);
@@ -48,22 +56,29 @@ public final class AutoPaperTradingController {
     }
 
     private String evaluateCompletedCandle(String symbol, String interval,
-                                            double marketPrice, double candleLow) {
-        if (!finitePositive(marketPrice) || !finitePositive(candleLow))
-            return "SIMULATION CHECK: skipped · invalid candle price.";
+                                            double marketPrice, double candleLow,
+                                            double candleHigh) {
+        if (!finitePositive(marketPrice) || !finitePositive(candleLow) ||
+                !finitePositive(candleHigh) || candleHigh < candleLow)
+            return "SIMULATION CHECK: skipped · invalid candle range.";
 
         SQLiteDatabase monitorDb = database.getReadableDatabase();
         Cursor stops = monitorDb.rawQuery(
-                "SELECT id, stop_loss FROM paper_trades WHERE symbol=? AND status='OPEN' AND stop_loss>0 ORDER BY opened_at ASC",
+                "SELECT id, stop_loss, entry_price FROM paper_trades WHERE symbol=? AND status='OPEN' AND stop_loss>0 ORDER BY opened_at ASC",
                 new String[]{symbol});
         ArrayList<long[]> triggered = new ArrayList<long[]>();
         try {
             while (stops.moveToNext()) {
                 long id = stops.getLong(0);
                 double stop = stops.getDouble(1);
+                double entry = stops.getDouble(2);
+                // If both barriers fall inside one candle, conservatively assume stop first.
                 if (candleLow <= stop) {
-                    double exitReference = marketPrice < stop ? marketPrice : stop;
-                    triggered.add(new long[]{id, Double.doubleToLongBits(exitReference)});
+                    triggered.add(new long[]{id, Double.doubleToLongBits(Math.min(marketPrice, stop)), 0L});
+                } else {
+                    double target = entry + ((entry - stop) * TAKE_PROFIT_MULTIPLIER);
+                    if (candleHigh >= target)
+                        triggered.add(new long[]{id, Double.doubleToLongBits(target), 1L});
                 }
             }
         } finally {
@@ -76,7 +91,10 @@ public final class AutoPaperTradingController {
             PaperTradingEngine.Result closed = trading.sell(item[0], exitReference);
             if (closed.success) recordExit(symbol);
             if (stopReport.length() > 0) stopReport.append("\n");
-            stopReport.append(closed.success ? "STOP EXECUTED: " : "STOP ERROR: ")
+            boolean takeProfit = item[2] == 1L;
+            stopReport.append(closed.success
+                    ? (takeProfit ? "TAKE-PROFIT EXECUTED: " : "STOP EXECUTED: ")
+                    : (takeProfit ? "TAKE-PROFIT ERROR: " : "STOP ERROR: "))
                     .append(closed.message);
         }
 
@@ -84,7 +102,7 @@ public final class AutoPaperTradingController {
             return append(stopReport, "ENTRY BLOCKED: virtual cash is depleted; reset the practice account.");
         }
         if (stopReport.length() > 0) {
-            return append(stopReport, "No replacement entry on the same candle as a stop-loss.");
+            return append(stopReport, "No replacement entry on the same candle as an exit.");
         }
 
         OnDeviceLearningEngine.Assessment assessment = learner.assess(symbol, interval);
