@@ -322,6 +322,7 @@ public final class MarketDataService extends Service {
 
     /** Runs one paper-entry evaluation for each pair after historical candles load. */
     private void evaluateLatestStoredCandles(String[] symbols) {
+        StringBuilder report = new StringBuilder("STARTUP PAPER-TRADING CHECK");
         for (String symbol : symbols) {
             Cursor cursor = database.getReadableDatabase().rawQuery(
                     "SELECT close, low FROM candles WHERE symbol=? AND interval='1m' " +
@@ -339,13 +340,14 @@ public final class MarketDataService extends Service {
             } finally {
                 cursor.close();
             }
+            report.append("\\n\\n").append(symbol).append(": ");
             if (found) {
-                String decision = autoTrader.onCompletedCandle(symbol, "1m", close, low);
-                broadcast(symbol + " · startup paper evaluation\n" + decision);
+                report.append(autoTrader.onCompletedCandle(symbol, "1m", close, low));
             } else {
-                broadcast(symbol + " · startup paper evaluation\nENTRY WAITING · no completed candle is stored.");
+                report.append("ENTRY WAITING · no completed candle is stored.");
             }
         }
+        broadcast(report.toString());
     }
 
     private void handleMessage(String raw) {
