@@ -48,6 +48,7 @@ public final class MarketDataService extends Service {
     public static final String EXTRA_STATUS = "status";
     public static final String EXTRA_QUOTES = "quotes";
     public static final String ACTION_STOP = "com.kalize.cryptoai.STOP_MARKET_STREAM";
+    public static final String ACTION_RECONNECT = "com.kalize.cryptoai.RECONNECT_MARKET_STREAM";
     private static final String CHANNEL_ID = "kalize_market_stream";
     private static final int NOTIFICATION_ID = 4101;
     private static final String STREAM_URL =
@@ -197,6 +198,21 @@ public final class MarketDataService extends Service {
         }
         startForeground(NOTIFICATION_ID, buildNotification("Connecting to market feed"));
         stoppedByUser = false;
+        if (intent != null && ACTION_RECONNECT.equals(intent.getAction())) {
+            // A user-requested retry clears a stuck socket and any pending backoff.
+            handler.removeCallbacks(reconnect);
+            if (socket != null) socket.cancel();
+            socket = null;
+            connecting = false;
+            connectStartedAt = 0L;
+            retrySeconds = 2;
+            lastMessageAt = 0L;
+            staleFeedReported = false;
+            database.putSetting("market_feed_stale", "false");
+            database.putSetting("market_feed_stale_reason", "");
+            broadcast("Manual reconnect requested · starting a fresh connection");
+            updateNotification("Retrying market connection");
+        }
         connect();
         return START_STICKY;
     }
