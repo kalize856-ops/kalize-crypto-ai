@@ -1,5 +1,6 @@
 package com.kalize.cryptoai;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -146,6 +147,9 @@ public final class PaperTradingSelfTest {
                 report.append("\nDIAGNOSTIC · AI qualified, but no position was found. Check the controller decision above for the exact gate or simulator rejection.");
             }
 
+            PaperTradingEngine.LedgerReconciliation reconciliation = engine.reconcileLedger();
+            passed += record(report, "Wallet and trade ledger reconcile", reconciliation.consistent);
+
             // Inject a closed loss into this disposable database to verify the
             // production controller pauses NEW entries at the daily loss threshold.
             ContentValues lossRow = new ContentValues();
@@ -176,8 +180,6 @@ public final class PaperTradingSelfTest {
             passed += record(report, "A completed candle can only be claimed once",
                     firstClaim && !duplicateClaim);
 
-            PaperTradingEngine.LedgerReconciliation reconciliation = engine.reconcileLedger();
-            passed += record(report, "Wallet and trade ledger reconcile", reconciliation.consistent);
         } catch (RuntimeException error) {
             report.append("\nUnexpected test error: ").append(error.getMessage());
         } finally {
