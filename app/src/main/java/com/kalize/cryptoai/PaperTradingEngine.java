@@ -65,6 +65,14 @@ public final class PaperTradingEngine {
             if(dailyPnl<=-(startingBalance*DAILY_LOSS_LIMIT))
                 return fail("Daily simulated loss limit reached. New positions are paused until tomorrow.");
             double equity=cash+scalar(db,"SELECT COALESCE(SUM(quantity*entry_price),0) FROM paper_trades WHERE status='OPEN'");
+            String normalizedSymbol = symbol.trim().toUpperCase(java.util.Locale.US);
+            Cursor sameSymbol = db.rawQuery(
+                    "SELECT COUNT(*) FROM paper_trades WHERE symbol=? AND status='OPEN'",
+                    new String[]{normalizedSymbol});
+            try {
+                if (sameSymbol.moveToFirst() && sameSymbol.getInt(0) > 0)
+                    return fail("An open simulated position already exists for " + normalizedSymbol + ". Close it before opening another.");
+            } finally { sameSymbol.close(); }
             int openCount=(int)scalar(db,"SELECT COUNT(*) FROM paper_trades WHERE status='OPEN'");
             if(openCount>=MAX_OPEN_POSITIONS) return fail("Limit reached: 3 open simulated positions.");
             double execution=marketPrice*(1.0+SLIPPAGE_RATE);
