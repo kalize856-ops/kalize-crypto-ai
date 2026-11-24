@@ -12,4 +12,12 @@ public final class MarketStreamStarter {
         if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
         else context.startService(intent);
     }
+
+    /** Requests an explicit socket reset without stopping the foreground service. */
+    public static void reconnect(Context context) {
+        Intent intent = new Intent(context, MarketDataService.class);
+        intent.setAction(MarketDataService.ACTION_RECONNECT);
+        if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
+        else context.startService(intent);
+    }
 }
