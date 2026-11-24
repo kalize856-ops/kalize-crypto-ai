@@ -219,3 +219,8 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Keeps all test candles, model changes, audit records and any resulting simulated order inside the temporary test database, which is deleted after the test.
 - The test accepts legitimate entry-gate outcomes (such as insufficient qualifying signal) as controller decisions; it does not falsely claim every market condition must create a trade.
 - No exchange connection or real-money order path is added.
+
+
+## Build 0.5.47
+
+The disposable simulator self-test now reports the AI stage (signal, confidence, probability, and learned sample counts) and the controller stage (full decision text, simulated positions opened, audit rows, and remaining virtual cash). If the AI qualifies but no position opens, the report explicitly points to the controller decision so a blocked entry is distinguishable from a missing execution. The test still uses a temporary database and does not modify the saved practice wallet.
