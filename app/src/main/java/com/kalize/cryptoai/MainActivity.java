@@ -216,6 +216,20 @@ public class MainActivity extends Activity {
         });
         content.addView(selfTestButton, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        // Run the production simulator diagnostics automatically on launch. The test
+        // uses a disposable database on a worker thread and never touches the user's
+        // saved $100 practice wallet or trade history.
+        selfTestPanel.setText("RUNNING STARTUP CHECK · testing the paper ledger and AI execution path…");
+        new Thread(new Runnable() {
+            @Override public void run() {
+                final String report = PaperTradingSelfTest.run(MainActivity.this);
+                selfTestPanel.post(new Runnable() {
+                    @Override public void run() {
+                        selfTestPanel.setText("AUTOMATIC STARTUP CHECK\n" + report);
+                    }
+                });
+            }
+        }, "Kalize-Paper-SelfTest").start();
         decisionJournalPanel = addPanel("RECENT AI DECISIONS", "Waiting for the first practice decision…");
         learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
         evolutionPanel = addPanel("AI EVOLUTION MODE", "Evaluating model quality and safe-improvement readiness…");
