@@ -133,6 +133,10 @@ public final class PaperTradingEngine {
         } finally {
             if(transaction) db.endTransaction();
         }
+        // Manual and automatic closes both start the same re-entry cooldown.
+        // Without this, a manual close could be followed by an immediate auto-entry.
+        helper.putSetting("auto_last_exit_" + symbol,
+                String.valueOf(System.currentTimeMillis()));
         if(probability>=0&&interval!=null) learner.learnFromPaperOutcome(symbol,interval,probability,pnl);
         return new Result(true,"Simulated position closed. Net P/L: "+
                 String.format(java.util.Locale.US,"$%.2f",pnl)+
