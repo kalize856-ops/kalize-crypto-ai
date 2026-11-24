@@ -510,21 +510,19 @@ public final class MarketDataService extends Service {
 
     /**
      * Serializes startup-backfill and live-WebSocket evaluation through one path.
-     * The per-symbol durable watermark is checked and advanced around the same
-     * evaluation routine, preventing concurrent duplicate entries from the two
-     * delivery paths while retaining retry eligibility after an interrupted run.
+     * Claim the durable candle watermark BEFORE executing any trade action. This
+     * deliberately favors at-most-once execution: a process interruption can skip
+     * one candle, but cannot replay an already-executed entry after a restart.
      */
     private synchronized String evaluatePaperCandleOnce(String symbol, String interval,
                                                           long openTime, double close,
                                                           double candleLow, double candleHigh) {
-        if (database.isAutomationCandleProcessed(symbol, interval, openTime)) {
-            return "DUPLICATE / OLDER CANDLE · paper evaluation already completed.";
+        if (!database.claimAutomationCandle(symbol, interval, openTime)) {
+            return "DUPLICATE / OLDER CANDLE · paper evaluation already claimed.";
         }
         learner.learn(symbol, interval);
-        String decision = autoTrader.onCompletedCandle(
+        return autoTrader.onCompletedCandle(
                 symbol, interval, close, candleLow, candleHigh);
-        database.claimAutomationCandle(symbol, interval, openTime);
-        return decision;
     }
 
     private void handleMessage(String raw) {
