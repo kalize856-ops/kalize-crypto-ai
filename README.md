@@ -203,3 +203,11 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - This closes the crash window where a trade could be recorded but the watermark not yet saved, allowing the same candle to be replayed after process restart.
 - The safety trade-off is explicit: if Android terminates the service after a claim but before evaluation finishes, that single candle may be skipped rather than replayed. Later candles continue normally.
 - No exchange order path is introduced; this remains a virtual-money simulator.
+
+
+## Build 0.5.45 — visible paper-pipeline failures
+- Exceptions during completed-candle learning or paper execution are now caught at the market-service boundary instead of disappearing inside the WebSocket message handler.
+- The affected candle remains claimed (at-most-once behavior is preserved), while the exception class/message is saved as a per-market last decision and execution-audit event when storage is available.
+- The execution monitor now reports pipeline errors separately from normal entry blocks, waiting signals and simulator rejections.
+- This improves fault visibility; it does not claim that a device build or live-device test has passed.
+- Simulation only; Binance and real-money order execution remain disabled.
