@@ -389,18 +389,20 @@ public final class MarketDataService extends Service {
         StringBuilder report = new StringBuilder("STARTUP PAPER-TRADING CHECK");
         for (String symbol : symbols) {
             Cursor cursor = database.getReadableDatabase().rawQuery(
-                    "SELECT close, low, high FROM candles WHERE symbol=? AND interval='1m' " +
+                    "SELECT open_time, close, low, high FROM candles WHERE symbol=? AND interval='1m' " +
                     "ORDER BY open_time DESC LIMIT 1",
                     new String[]{symbol});
+            long openTime = 0L;
             double close = 0.0;
             double low = 0.0;
             double high = 0.0;
             boolean found = false;
             try {
                 if (cursor.moveToFirst()) {
-                    close = cursor.getDouble(0);
-                    low = cursor.getDouble(1);
-                    high = cursor.getDouble(2);
+                    openTime = cursor.getLong(0);
+                    close = cursor.getDouble(1);
+                    low = cursor.getDouble(2);
+                    high = cursor.getDouble(3);
                     found = true;
                 }
             } finally {
@@ -408,7 +410,11 @@ public final class MarketDataService extends Service {
             }
             report.append("\\n\\n").append(symbol).append(": ");
             if (found) {
-                report.append(autoTrader.onCompletedCandle(symbol, "1m", close, low, high));
+                if (database.claimAutomationCandle(symbol, "1m", openTime)) {
+                    report.append(autoTrader.onCompletedCandle(symbol, "1m", close, low, high));
+                } else {
+                    report.append("SKIPPED · latest completed candle was already evaluated.");
+                }
             } else {
                 report.append("ENTRY WAITING · no completed candle is stored.");
             }
@@ -450,7 +456,13 @@ public final class MarketDataService extends Service {
 
             // The just-closed candle supplies the next label for the prior candle.
             learner.learn(symbol, "1m");
-            String automation = autoTrader.onCompletedCandle(symbol, "1m", close, candleLow, candleHigh);
+            String automation;
+            if (database.claimAutomationCandle(symbol, "1m", openTime)) {
+                automation = autoTrader.onCompletedCandle(
+                        symbol, "1m", close, candleLow, candleHigh);
+            } else {
+                automation = "DUPLICATE / OLDER CANDLE · paper evaluation already completed.";
+            }
             broadcast(symbol + " · 1m candle saved\n" + automation);
             updateNotification("Live · " + symbol + " candle saved");
         } catch (Exception ignored) {
