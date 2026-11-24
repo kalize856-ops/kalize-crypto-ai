@@ -76,6 +76,21 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void simulatorIncludesBothSideFeesAndSlippageInStopRiskLimit() {
+        PaperTradingEngine engine = new PaperTradingEngine(database);
+        double equity = database.getCashBalance();
+        double quantity = (equity * PaperTradingEngine.MAX_RISK_PER_TRADE) / 0.99;
+        double startingCash = database.getCashBalance();
+
+        PaperTradingEngine.Result result = engine.buy("TESTUSDT", quantity, 10.0, 9.9);
+
+        assertFalse("Trade whose fee/slippage-adjusted stop loss exceeds 1% must be rejected",
+                result.success);
+        assertEquals(startingCash, database.getCashBalance(), 0.000001);
+        assertEquals(0, engine.getOpenPositionCount());
+    }
+
+    @Test
     public void duplicateCompletedCandleIsIgnored() {
         long openTime = System.currentTimeMillis() - 60000L;
         assertTrue(database.saveCandleIfNew(
