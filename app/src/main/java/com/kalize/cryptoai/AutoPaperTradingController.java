@@ -153,6 +153,11 @@ public final class AutoPaperTradingController {
 
         if (!"UPWARD BIAS".equals(assessment.signal) ||
                 assessment.confidence < MIN_CONFIDENCE) {
+            if ("LEARNING".equals(assessment.signal)) {
+                return "NO ENTRY · AI feature window is still warming up; seven completed candles are required.";
+            }
+            String startupProbe = tryOpenFirstRunProbe(symbol, marketPrice);
+            if (startupProbe != null) return startupProbe;
             return "NO ENTRY · AI signal=" + assessment.signal +
                     " · confidence=" + format(assessment.confidence) +
                     "% · required=5% · waiting for qualifying upward signal.";
@@ -192,6 +197,59 @@ public final class AutoPaperTradingController {
         }
         return "ENTRY REJECTED BY SIMULATOR · AI confidence=" +
                 format(assessment.confidence) + "% · " + opened.message;
+    }
+
+    /**
+     * A first-run paper-only smoke trade proves that the live candle -> controller ->
+     * ledger path can execute even when the AI currently has no upward signal.
+     * It is explicitly labelled as a diagnostic trade, not an AI recommendation.
+     * The ordinary simulator still enforces cash, fees, slippage, position and
+     * daily-loss rules. Its risk budget is deliberately capped at 0.25% of equity.
+     */
+    private String tryOpenFirstRunProbe(String symbol, double marketPrice) {
+        if ("true".equalsIgnoreCase(database.getSetting("auto_startup_probe_completed", "false"))) {
+            return null;
+        }
+        SQLiteDatabase db = database.getReadableDatabase();
+        Cursor history = db.rawQuery("SELECT COUNT(*) FROM paper_trades", null);
+        try {
+            if (history.moveToFirst() && history.getInt(0) > 0) {
+                database.putSetting("auto_startup_probe_completed", "true");
+                return null;
+            }
+        } finally {
+            history.close();
+        }
+
+        double cash = database.getCashBalance();
+        if (!finitePositive(cash)) return "STARTUP TEST TRADE WAITING · no virtual cash available.";
+        double equity = cash + trading.getOpenEntryValue();
+        double stop = marketPrice * (1.0 - Double.parseDouble(STOP_DISTANCE));
+        double expectedEntry = marketPrice * (1.0 + PaperTradingEngine.SLIPPAGE_RATE);
+        double expectedStopExit = stop * (1.0 - PaperTradingEngine.SLIPPAGE_RATE);
+        double lossPerUnit = expectedEntry * (1.0 + PaperTradingEngine.FEE_RATE)
+                - expectedStopExit * (1.0 - PaperTradingEngine.FEE_RATE);
+        if (!finitePositive(lossPerUnit) || !finitePositive(equity)) {
+            return "STARTUP TEST TRADE WAITING · unable to calculate a valid risk-sized position.";
+        }
+
+        double riskBudget = equity * 0.0025;
+        double quantityByRisk = riskBudget / lossPerUnit;
+        double quantityByNotional = (equity * 0.10) / expectedEntry;
+        double quantity = Math.min(quantityByRisk, quantityByNotional);
+        if (!finitePositive(quantity)) {
+            return "STARTUP TEST TRADE WAITING · calculated quantity is invalid.";
+        }
+
+        PaperTradingEngine.Result result = trading.buy(symbol, quantity, marketPrice, stop);
+        if (!result.success) {
+            return "STARTUP TEST TRADE NOT OPENED · simulator safeguard: " + result.message;
+        }
+        database.putSetting("auto_startup_probe_completed", "true");
+        return "STARTUP PAPER TEST TRADE OPENED · " + symbol +
+                " · diagnostic only, not an AI signal · virtual value=$" +
+                format(result.amount) + " · risk budget=0.25% · trade #" +
+                result.tradeId + ".";
     }
 
     /**
