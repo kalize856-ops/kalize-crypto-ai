@@ -839,7 +839,19 @@ public class MainActivity extends Activity {
                 out.append("\n").append(decision);
             }
         }
-        out.append("\n\nConfidence is not a trade by itself: an entry also needs an upward signal, fresh candles, available virtual cash, and simulator risk approval.");
+        Cursor audit = db.rawQuery(
+                "SELECT symbol, decision, recorded_at FROM execution_audit ORDER BY id DESC LIMIT 6", null);
+        try {
+            if (audit.moveToFirst()) {
+                out.append("\\n\\nRECENT EXECUTION AUDIT");
+                do {
+                    String pair = audit.getString(0).replace("USDT", "/USDT");
+                    out.append("\\n").append(format.format(new java.util.Date(audit.getLong(2))))
+                            .append(" · ").append(pair).append("\\n").append(audit.getString(1));
+                } while (audit.moveToNext());
+            }
+        } finally { audit.close(); }
+        out.append("\\n\\nConfidence is not a trade by itself: an entry also needs an upward signal, fresh candles, available virtual cash, and simulator risk approval.");
         return out.toString();
     }
     private String loadModels() {
