@@ -16,7 +16,7 @@ public final class PaperTradingSelfTest {
         PaperDatabaseHelper helper = null;
         StringBuilder report = new StringBuilder();
         int passed = 0;
-        int total = 7;
+        int total = 8;
         try {
             context.deleteDatabase(databaseName);
             helper = new PaperDatabaseHelper(context, databaseName);
