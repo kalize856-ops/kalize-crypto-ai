@@ -162,7 +162,10 @@ public final class AutoPaperTradingController {
         double riskBudget = equity * PaperTradingEngine.MAX_RISK_PER_TRADE;
         double quantityByRisk = riskBudget / (marketPrice - stop);
         double maxNotional = equity * PaperTradingEngine.MAX_POSITION_VALUE;
-        double quantityBySize = maxNotional / marketPrice;
+        // Size against the simulator's slippage-adjusted fill, not the quoted price.
+        // Otherwise a position sized at exactly 25% is rejected after entry slippage.
+        double expectedExecutionPrice = marketPrice * (1.0 + PaperTradingEngine.SLIPPAGE_RATE);
+        double quantityBySize = maxNotional / expectedExecutionPrice;
         double quantity = Math.min(quantityByRisk, quantityBySize);
 
         if (!finitePositive(quantity)) return "ENTRY BLOCKED · calculated position size is invalid.";
