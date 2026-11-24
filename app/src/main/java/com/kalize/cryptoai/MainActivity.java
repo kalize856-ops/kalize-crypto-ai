@@ -1195,6 +1195,8 @@ public class MainActivity extends Activity {
         String candleAt = database.getSetting("market_feed_last_candle_at", "0");
         String candleSymbol = database.getSetting("market_feed_last_candle_symbol", "—");
         String messageAt = database.getSetting("market_feed_last_message_at", "0");
+        String payloadAt = database.getSetting("market_feed_last_payload_at", "0");
+        String payloadType = database.getSetting("market_feed_last_payload_type", "—");
         String stale = database.getSetting("market_feed_stale", "false");
         String staleReason = database.getSetting("market_feed_stale_reason", "");
         out.append("\nFeed: ").append(feedStatus);
@@ -1217,6 +1219,19 @@ public class MainActivity extends Activity {
             }
         } catch (Exception ignored) {
             out.append("\nLast WebSocket message: unavailable");
+        }
+        try {
+            long payloadTime = Long.parseLong(payloadAt);
+            if (payloadTime > 0L) {
+                long payloadAge = Math.max(0L, now - payloadTime) / 1000L;
+                out.append("\nLast valid market payload: ").append(payloadType)
+                        .append(" · ").append(payloadAge).append("s ago");
+                if (payloadAge > 90L) out.append(" · STALE");
+            } else {
+                out.append("\nLast valid market payload: waiting for recognized ticker/candle data");
+            }
+        } catch (Exception ignored) {
+            out.append("\nLast valid market payload: unavailable");
         }
         try {
             long candleAge = Math.max(0L, now - Long.parseLong(candleAt)) / 1000L;
