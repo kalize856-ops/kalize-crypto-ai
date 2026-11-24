@@ -98,6 +98,22 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void simulatorRejectsSecondOpenPositionForSameSymbol() {
+        PaperTradingEngine engine = new PaperTradingEngine(database);
+        PaperTradingEngine.Result first = engine.buy("BTCUSDT", 0.1, 100.0, 98.0);
+        assertTrue(first.message, first.success);
+        double cashAfterFirst = database.getCashBalance();
+
+        PaperTradingEngine.Result second = engine.buy("btcusdt", 0.1, 100.0, 98.0);
+
+        assertFalse("A second open position for the same market must be rejected",
+                second.success);
+        assertTrue(second.message, second.message.contains("already exists"));
+        assertEquals(cashAfterFirst, database.getCashBalance(), 0.000001);
+        assertEquals(1, engine.getOpenPositionCount());
+    }
+
+    @Test
     public void duplicateCompletedCandleIsIgnored() {
         long openTime = System.currentTimeMillis() - 60000L;
         assertTrue(database.saveCandleIfNew(
