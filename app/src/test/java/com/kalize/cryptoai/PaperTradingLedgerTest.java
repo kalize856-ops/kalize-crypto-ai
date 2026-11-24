@@ -79,10 +79,17 @@ public class PaperTradingLedgerTest {
     public void simulatorIncludesBothSideFeesAndSlippageInStopRiskLimit() {
         PaperTradingEngine engine = new PaperTradingEngine(database);
         double equity = database.getCashBalance();
-        double quantity = (equity * PaperTradingEngine.MAX_RISK_PER_TRADE) / 0.99;
         double startingCash = database.getCashBalance();
+        double entry = 10.0 * (1.0 + PaperTradingEngine.SLIPPAGE_RATE);
+        double stopExit = 9.5 * (1.0 - PaperTradingEngine.SLIPPAGE_RATE);
+        double fullCostLossPerUnit = entry * (1.0 + PaperTradingEngine.FEE_RATE)
+                - stopExit * (1.0 - PaperTradingEngine.FEE_RATE);
+        // Old price-only risk accounting would accept this; full execution-cost
+        // accounting correctly rejects it while the notional remains below 25%.
+        double quantity = equity * PaperTradingEngine.MAX_RISK_PER_TRADE
+                * 1.01 / fullCostLossPerUnit;
 
-        PaperTradingEngine.Result result = engine.buy("TESTUSDT", quantity, 10.0, 9.9);
+        PaperTradingEngine.Result result = engine.buy("TESTUSDT", quantity, 10.0, 9.5);
 
         assertFalse("Trade whose fee/slippage-adjusted stop loss exceeds 1% must be rejected",
                 result.success);
