@@ -164,8 +164,13 @@ public class PaperTradingLedgerTest {
                 database.claimAutomationCandle("BTCUSDT", "1m", first - 60000L));
         assertTrue("The next completed candle must remain eligible",
                 database.claimAutomationCandle("BTCUSDT", "1m", next));
-        assertFalse("A service restart must retain the latest processed timestamp",
-                new PaperDatabaseHelper(context).claimAutomationCandle("BTCUSDT", "1m", next));
+        PaperDatabaseHelper reopened = new PaperDatabaseHelper(context);
+        try {
+            assertFalse("A service restart must retain the latest processed timestamp",
+                    reopened.claimAutomationCandle("BTCUSDT", "1m", next));
+        } finally {
+            reopened.closeStore();
+        }
     }
 
     @Test
@@ -420,12 +425,15 @@ public class PaperTradingLedgerTest {
         database.putSetting("auto_last_exit_BTCUSDT", String.valueOf(System.currentTimeMillis()));
         database.putSetting("auto_last_decision_BTCUSDT", "OLD SESSION DECISION");
         database.putSetting("auto_last_decision_at_BTCUSDT", "123");
+        database.putSetting("auto_last_processed_candle_BTCUSDT_1m", "123456789");
 
         database.resetPaperSimulation();
 
         assertEquals("0", database.getSetting("auto_last_exit_BTCUSDT", "0"));
         assertEquals("", database.getSetting("auto_last_decision_BTCUSDT", ""));
         assertEquals("", database.getSetting("auto_last_decision_at_BTCUSDT", ""));
+        assertEquals("", database.getSetting(
+                "auto_last_processed_candle_BTCUSDT_1m", ""));
         assertEquals(100.0, database.getCashBalance(), 0.000001);
     }
 
