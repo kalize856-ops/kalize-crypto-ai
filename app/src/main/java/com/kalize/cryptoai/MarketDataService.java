@@ -65,6 +65,7 @@ public final class MarketDataService extends Service {
     private boolean connecting = false;
     private int retrySeconds = 2;
     private Thread backfillThread;
+    private volatile boolean backfillRequested = false;
     private boolean connectivityReceiverRegistered = false;
 
     // Recover long-lived sockets after Android Wi-Fi or hotspot handoffs.
@@ -310,7 +311,13 @@ public final class MarketDataService extends Service {
 
     /** Downloads up to 1 hour of completed one-minute candles without blocking the feed. */
     private void startHistoricalBackfill() {
-        if (stoppedByUser || (backfillThread != null && backfillThread.isAlive())) return;
+        if (stoppedByUser) return;
+        if (backfillThread != null && backfillThread.isAlive()) {
+            // Preserve a reconnect request made while an older backfill is still running.
+            backfillRequested = true;
+            return;
+        }
+        backfillRequested = false;
         handler.removeCallbacks(backfillRetry);
         backfillThread = new Thread(new Runnable() {
             @Override public void run() {
@@ -381,6 +388,15 @@ public final class MarketDataService extends Service {
                             " · retry in 5 minutes; live feed will continue");
                     handler.removeCallbacks(backfillRetry);
                     handler.postDelayed(backfillRetry, BACKFILL_RETRY_MS);
+                } finally {
+                    if (backfillRequested && !stoppedByUser) {
+                        backfillRequested = false;
+                        handler.post(new Runnable() {
+                            @Override public void run() {
+                                if (!stoppedByUser) startHistoricalBackfill();
+                            }
+                        });
+                    }
                 }
             }
         }, "Kalize-History-Backfill");
