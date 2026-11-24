@@ -27,12 +27,14 @@ public final class AutoPaperTradingController {
     }
 
     public synchronized boolean isEnabled() {
-        return !database.isVirtualCashDepleted();
+        return "true".equalsIgnoreCase(database.getSetting("auto_paper_trading", "true"))
+                && !database.isVirtualCashDepleted();
     }
 
-    /** Automation is automatic; this method cannot enable real-money trading. */
+    /** Persists the local paper-automation switch; this never enables exchange orders. */
     public synchronized void setEnabled(boolean enabled) {
-        database.putSetting("auto_paper_trading", "true");
+        database.putSetting("auto_paper_trading", enabled && !database.isVirtualCashDepleted()
+                ? "true" : "false");
     }
 
     /** Called after each newly stored, completed one-minute candle. */
@@ -100,6 +102,9 @@ public final class AutoPaperTradingController {
 
         if (database.isVirtualCashDepleted()) {
             return append(stopReport, "ENTRY BLOCKED: virtual cash is depleted; reset the practice account.");
+        }
+        if (!"true".equalsIgnoreCase(database.getSetting("auto_paper_trading", "true"))) {
+            return append(stopReport, "AUTO PAPER TRADING OFF · existing stop-loss and take-profit monitoring remains active.");
         }
         if (stopReport.length() > 0) {
             return append(stopReport, "No replacement entry on the same candle as an exit.");
