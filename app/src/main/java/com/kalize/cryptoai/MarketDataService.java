@@ -517,12 +517,33 @@ public final class MarketDataService extends Service {
     private synchronized String evaluatePaperCandleOnce(String symbol, String interval,
                                                           long openTime, double close,
                                                           double candleLow, double candleHigh) {
-        if (!database.claimAutomationCandle(symbol, interval, openTime)) {
-            return "DUPLICATE / OLDER CANDLE · paper evaluation already claimed.";
+        try {
+            if (!database.claimAutomationCandle(symbol, interval, openTime)) {
+                return "DUPLICATE / OLDER CANDLE · paper evaluation already claimed.";
+            }
+            learner.learn(symbol, interval);
+            return autoTrader.onCompletedCandle(
+                    symbol, interval, close, candleLow, candleHigh);
+        } catch (RuntimeException error) {
+            // A consumed candle must never fail silently. Do not retry it (which
+            // could duplicate an order after a partial ledger write); persist the
+            // exact failure and continue with the next completed candle.
+            String detail = error.getClass().getSimpleName();
+            String message = error.getMessage();
+            if (message != null && message.trim().length() > 0) {
+                detail += ": " + message.trim();
+            }
+            String decision = "PIPELINE ERROR · " + detail;
+            try {
+                database.putSetting("auto_last_decision_" + symbol, decision);
+                database.putSetting("auto_last_decision_at_" + symbol,
+                        String.valueOf(System.currentTimeMillis()));
+                database.recordExecutionDecision(symbol, interval, decision);
+            } catch (RuntimeException loggingError) {
+                // Keep the market stream alive even if diagnostics cannot be saved.
+            }
+            return decision;
         }
-        learner.learn(symbol, interval);
-        return autoTrader.onCompletedCandle(
-                symbol, interval, close, candleLow, candleHigh);
     }
 
     private void handleMessage(String raw) {
