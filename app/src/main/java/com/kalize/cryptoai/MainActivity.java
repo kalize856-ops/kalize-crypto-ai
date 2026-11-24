@@ -856,18 +856,21 @@ public class MainActivity extends Activity {
                 "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY BLOCKED%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY REJECTED BY SIMULATOR%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE 'NO ENTRY%' THEN 1 ELSE 0 END),0), " +
-                "COALESCE(SUM(CASE WHEN decision LIKE '%EXECUTED:%' OR decision LIKE 'POSITION MANAGEMENT%' THEN 1 ELSE 0 END),0) " +
+                "COALESCE(SUM(CASE WHEN decision LIKE '%EXECUTED:%' OR decision LIKE 'POSITION MANAGEMENT%' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN decision LIKE 'PIPELINE ERROR%' THEN 1 ELSE 0 END),0) " +
                 "FROM (SELECT decision FROM execution_audit ORDER BY id DESC LIMIT 100)", null);
         try {
             if (auditCounts.moveToFirst()) {
                 out.append("\nExecution checks recorded: ")
                         .append(auditCounts.getInt(0) + auditCounts.getInt(1) +
-                                auditCounts.getInt(2) + auditCounts.getInt(3) + auditCounts.getInt(4))
+                                auditCounts.getInt(2) + auditCounts.getInt(3) +
+                                auditCounts.getInt(4) + auditCounts.getInt(5))
                         .append("\nAccepted entries in audit: ").append(auditCounts.getInt(0))
                         .append("\nBlocked by entry rules: ").append(auditCounts.getInt(1))
                         .append("\nRejected by simulator: ").append(auditCounts.getInt(2))
                         .append("\nSignals waiting: ").append(auditCounts.getInt(3))
                         .append("\nPosition/exit events: ").append(auditCounts.getInt(4))
+                        .append("\nPipeline errors: ").append(auditCounts.getInt(5))
                         .append("\nAudit window: latest 100 decisions.");
             }
         } finally { auditCounts.close(); }
