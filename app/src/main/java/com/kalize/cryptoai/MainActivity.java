@@ -936,7 +936,10 @@ public class MainActivity extends Activity {
                     .append("\nCurrent AI signal: ").append(assessment.signal)
                     .append(" · confidence: ")
                     .append(String.format(Locale.US, "%.1f%%", assessment.confidence))
+                    .append("\nAI probability: ").append(String.format(Locale.US, "%.4f", assessment.probability))
                     .append("\nLearning examples: ").append(assessment.candleSamples)
+                    .append("\nLatest completed candle: ").append(latestCandle > 0L
+                            ? format.format(new java.util.Date(latestCandle)) : "not available")
                     .append("\nEntry data: ").append(candleCount).append("/3 recent candles");
             if (latestCandle <= 0L) {
                 out.append(" · waiting for first completed candle");
