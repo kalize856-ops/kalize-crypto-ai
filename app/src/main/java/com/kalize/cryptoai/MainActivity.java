@@ -1096,7 +1096,7 @@ public class MainActivity extends Activity {
 
     /** Summary of closed virtual trades since the start of the current day. */
     private String loadDailyPerformanceReport(SQLiteDatabase db) {
-        long dayStart = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L);
+        long dayStart = PaperTradingEngine.startOfLocalDayMillis();
         Cursor c = db.rawQuery(
                 "SELECT COUNT(*), COALESCE(SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END),0)," +
                 "COALESCE(SUM(CASE WHEN realized_pnl<0 THEN 1 ELSE 0 END),0)," +
