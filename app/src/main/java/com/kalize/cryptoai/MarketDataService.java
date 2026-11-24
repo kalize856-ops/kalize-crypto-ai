@@ -168,8 +168,12 @@ public final class MarketDataService extends Service {
                 connecting = false;
                 lastMessageAt = System.currentTimeMillis();
                 retrySeconds = 2;
-                broadcast("Connected · waiting for completed 1m candles");
-                updateNotification("Connected · 1-minute candles");
+                broadcast("Connected · checking for candles missed during connection gap");
+                updateNotification("Connected · syncing recent candles");
+                // A reconnect may follow a hotspot/Wi-Fi handoff. Refresh the
+                // retained one-hour window so missed completed candles are restored.
+                // startHistoricalBackfill() prevents overlapping backfill workers.
+                startHistoricalBackfill();
             }
 
             @Override public void onMessage(WebSocket webSocket, String text) {
