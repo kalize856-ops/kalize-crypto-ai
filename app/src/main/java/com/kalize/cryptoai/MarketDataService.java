@@ -103,8 +103,11 @@ public final class MarketDataService extends Service {
             handler.postDelayed(networkRecovery, 1500L);
         }
     };
-    private long lastMessageAt = 0L;
+    private volatile long lastMessageAt = 0L;
+    private long lastMessagePersistedAt = 0L;
+    private boolean staleFeedReported = false;
     private static final long STALE_FEED_MS = 90000L;
+    private static final long MESSAGE_DIAGNOSTIC_WRITE_MS = 30000L;
     private static final long CLEANUP_INTERVAL_MS = 6L * 60L * 60L * 1000L;
     private static final long BACKFILL_RETRY_MS = 5L * 60L * 1000L;
 
@@ -121,12 +124,17 @@ public final class MarketDataService extends Service {
     private final Runnable staleFeedCheck = new Runnable() {
         @Override public void run() {
             if (stoppedByUser) return;
-            if (socket != null && lastMessageAt > 0L && System.currentTimeMillis() - lastMessageAt > STALE_FEED_MS) {
+            if (socket != null && lastMessageAt > 0L &&
+                    System.currentTimeMillis() - lastMessageAt > STALE_FEED_MS && !staleFeedReported) {
+                staleFeedReported = true;
+                database.putSetting("market_feed_stale", "true");
+                database.putSetting("market_feed_stale_reason", "No WebSocket messages received for over 90 seconds");
                 WebSocket stale = socket;
                 socket = null;
                 connecting = false;
                 stale.cancel();
-                broadcast("Market feed stopped responding · reconnecting");
+                broadcast("Market feed silent for over 90 seconds · reconnecting");
+                updateNotification("Feed silent · reconnecting");
                 scheduleReconnect();
             }
             handler.postDelayed(this, 30000L);
@@ -179,6 +187,11 @@ public final class MarketDataService extends Service {
                 if (socket != webSocket || stoppedByUser) { webSocket.cancel(); return; }
                 connecting = false;
                 lastMessageAt = System.currentTimeMillis();
+                lastMessagePersistedAt = 0L;
+                staleFeedReported = false;
+                database.putSetting("market_feed_stale", "false");
+                database.putSetting("market_feed_stale_reason", "");
+                persistMessageFreshness(lastMessageAt);
                 retrySeconds = 2;
                 broadcast("Connected · checking for candles missed during connection gap");
                 updateNotification("Connected · syncing recent candles");
@@ -192,6 +205,7 @@ public final class MarketDataService extends Service {
                 // Ignore late frames from a socket that was replaced during reconnect.
                 if (socket != webSocket || stoppedByUser) return;
                 lastMessageAt = System.currentTimeMillis();
+                persistMessageFreshness(lastMessageAt);
                 handleMessage(text);
             }
 
@@ -199,6 +213,7 @@ public final class MarketDataService extends Service {
                 // Ignore late frames from a socket that was replaced during reconnect.
                 if (socket != webSocket || stoppedByUser) return;
                 lastMessageAt = System.currentTimeMillis();
+                persistMessageFreshness(lastMessageAt);
                 handleMessage(bytes.utf8());
             }
 
@@ -515,6 +530,17 @@ public final class MarketDataService extends Service {
         broadcast("Disconnected · retrying in " + delay + "s");
         handler.removeCallbacks(reconnect);
         handler.postDelayed(reconnect, delay * 1000L);
+    }
+
+    /** Persist WebSocket activity at most twice per minute to avoid flash wear on older phones. */
+    private void persistMessageFreshness(long timestamp) {
+        if (timestamp - lastMessagePersistedAt < MESSAGE_DIAGNOSTIC_WRITE_MS) return;
+        lastMessagePersistedAt = timestamp;
+        try {
+            database.putSetting("market_feed_last_message_at", String.valueOf(timestamp));
+            database.putSetting("market_feed_stale", "false");
+            database.putSetting("market_feed_stale_reason", "");
+        } catch (Exception ignored) { }
     }
 
     private void broadcast(String status) {
