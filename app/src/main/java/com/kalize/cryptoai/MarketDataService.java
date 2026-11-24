@@ -81,6 +81,7 @@ public final class MarketDataService extends Service {
                 if (socket != null) socket.cancel();
                 socket = null;
                 connecting = false;
+                connectStartedAt = 0L;
                 database.putSetting("market_feed_stale", "true");
                 database.putSetting("market_feed_stale_reason", "Internet connection unavailable");
                 broadcast("Internet unavailable · waiting for network");
@@ -94,6 +95,7 @@ public final class MarketDataService extends Service {
             if (socket != null) socket.cancel();
             socket = null;
             connecting = false;
+            connectStartedAt = 0L;
             retrySeconds = 2;
             database.putSetting("market_feed_stale", "false");
             database.putSetting("market_feed_stale_reason", "");
