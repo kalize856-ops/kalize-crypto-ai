@@ -70,8 +70,13 @@ public final class PaperTradingEngine {
             double execution=marketPrice*(1.0+SLIPPAGE_RATE);
             double notional=quantity*execution, fee=notional*FEE_RATE;
             if(notional>equity*MAX_POSITION_VALUE) return fail("Position exceeds the 25% simulated portfolio-size limit.");
-            if(quantity*(execution-stopLoss)>equity*MAX_RISK_PER_TRADE)
-                return fail("Estimated stop-loss risk exceeds 1% of simulated portfolio equity.");
+            double expectedStopExit = stopLoss * (1.0 - SLIPPAGE_RATE);
+            double entryCostPerUnit = execution * (1.0 + FEE_RATE);
+            double stopProceedsPerUnit = expectedStopExit * (1.0 - FEE_RATE);
+            double worstCaseLossPerUnit = entryCostPerUnit - stopProceedsPerUnit;
+            if(worstCaseLossPerUnit <= 0.0 ||
+                    quantity * worstCaseLossPerUnit > equity * MAX_RISK_PER_TRADE)
+                return fail("Estimated stop-loss risk including entry/exit fees and slippage exceeds 1% of simulated portfolio equity.");
             if(notional+fee>cash) return fail("Insufficient virtual cash. Close an open position or reset the simulation.");
             ContentValues wallet=new ContentValues();
             wallet.put("cash_balance",cash-notional-fee); wallet.put("updated_at",System.currentTimeMillis());
