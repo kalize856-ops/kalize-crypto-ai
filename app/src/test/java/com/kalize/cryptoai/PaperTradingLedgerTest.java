@@ -153,6 +153,22 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void automationCandleClaimIsIdempotentAcrossReconnectsAndOlderBackfill() {
+        long first = System.currentTimeMillis() - 120000L;
+        long next = first + 60000L;
+
+        assertTrue(database.claimAutomationCandle("btcusdt", "1m", first));
+        assertFalse("Repeated websocket delivery must not trigger a second evaluation",
+                database.claimAutomationCandle("BTCUSDT", "1m", first));
+        assertFalse("A delayed older backfill row must not rewind the processed watermark",
+                database.claimAutomationCandle("BTCUSDT", "1m", first - 60000L));
+        assertTrue("The next completed candle must remain eligible",
+                database.claimAutomationCandle("BTCUSDT", "1m", next));
+        assertFalse("A service restart must retain the latest processed timestamp",
+                new PaperDatabaseHelper(context).claimAutomationCandle("BTCUSDT", "1m", next));
+    }
+
+    @Test
     public void duplicateCompletedCandleIsIgnored() {
         long openTime = System.currentTimeMillis() - 60000L;
         assertTrue(database.saveCandleIfNew(
