@@ -68,9 +68,10 @@ public final class MarketDataService extends Service {
     private volatile boolean backfillRequested = false;
     private boolean connectivityReceiverRegistered = false;
 
-    // Recover long-lived sockets after Android Wi-Fi or hotspot handoffs.
-    private final BroadcastReceiver connectivityReceiver = new BroadcastReceiver() {
-        @Override public void onReceive(Context context, Intent intent) {
+    // Android can emit several CONNECTIVITY_ACTION broadcasts during one
+    // hotspot handoff. Debounce them so a healthy socket is not repeatedly killed.
+    private final Runnable networkRecovery = new Runnable() {
+        @Override public void run() {
             if (stoppedByUser) return;
             ConnectivityManager manager = (ConnectivityManager)
                     getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -83,13 +84,23 @@ public final class MarketDataService extends Service {
                 broadcast("Internet unavailable · waiting for network");
                 return;
             }
+            // A duplicate connectivity broadcast must not interrupt a working feed.
+            if (socket != null && lastMessageAt > 0L &&
+                    System.currentTimeMillis() - lastMessageAt <= STALE_FEED_MS) return;
             handler.removeCallbacks(reconnect);
             if (socket != null) socket.cancel();
             socket = null;
             connecting = false;
             retrySeconds = 2;
-            broadcast("Network available · restarting market connection");
+            broadcast("Network restored · reconnecting and syncing missed candles");
             connect();
+        }
+    };
+    private final BroadcastReceiver connectivityReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (stoppedByUser) return;
+            handler.removeCallbacks(networkRecovery);
+            handler.postDelayed(networkRecovery, 1500L);
         }
     };
     private long lastMessageAt = 0L;
@@ -555,6 +566,7 @@ public final class MarketDataService extends Service {
     @Override public void onDestroy() {
         stoppedByUser = true;
         handler.removeCallbacks(reconnect);
+        handler.removeCallbacks(networkRecovery);
         handler.removeCallbacks(cleanupTask);
         handler.removeCallbacks(staleFeedCheck);
         handler.removeCallbacks(backfillRetry);
