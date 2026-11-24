@@ -135,6 +135,11 @@ public final class AutoPaperTradingController {
                     format(assessment.confidence) + "%.";
         }
 
+        // Daily loss pause blocks new entries only. Exit processing above remains active.
+        if (trading.isDailyLossLimitReached()) {
+            return "ENTRY BLOCKED · daily simulated loss limit reached; new entries resume after the local day resets.";
+        }
+
         String candleReadiness = getRecentCandleReadiness(symbol, interval);
         if (candleReadiness != null) {
             return "ENTRY BLOCKED · " + candleReadiness;
