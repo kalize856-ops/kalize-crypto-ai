@@ -185,7 +185,8 @@ public final class MarketDataService extends Service {
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .retryOnConnectionFailure(true)
-                .connectionSpecs(java.util.Collections.singletonList(ConnectionSpec.MODERN_TLS));
+                .connectionSpecs(java.util.Arrays.asList(
+                        ConnectionSpec.MODERN_TLS, ConnectionSpec.COMPATIBLE_TLS));
         try {
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(
                     TrustManagerFactory.getDefaultAlgorithm());
