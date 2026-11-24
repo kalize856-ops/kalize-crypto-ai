@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 /** Small local store designed for Android 4.4+; simulation data only. */
 public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kalize_paper.db";
-    private static final int DB_VERSION = 9;
+    private static final int DB_VERSION = 10;
     private static final long CANDLE_WINDOW_MS = 60L * 60L * 1000L;
 
     public PaperDatabaseHelper(Context context) {
@@ -38,6 +38,7 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                 "setting_key TEXT PRIMARY KEY," +
                 "setting_value TEXT NOT NULL)");
         createResetHistoryTable(db);
+        createExecutionAuditTable(db);
         ContentValues wallet = new ContentValues();
         wallet.put("id", 1);
         wallet.put("starting_balance", 100.0);
@@ -86,7 +87,32 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
                     "trade_samples=0, trade_correct=0");
         }
         if (oldVersion < 9) createResetHistoryTable(db);
+        if (oldVersion < 10) createExecutionAuditTable(db);
         // Existing virtual balances, candles and trades are preserved.
+    }
+
+    private void createExecutionAuditTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS execution_audit (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "symbol TEXT NOT NULL," +
+                "interval TEXT NOT NULL," +
+                "decision TEXT NOT NULL," +
+                "recorded_at INTEGER NOT NULL)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS execution_audit_time_idx ON execution_audit(recorded_at)");
+    }
+
+    /** Stores bounded, append-only decision history for the on-device execution monitor. */
+    public void recordExecutionDecision(String symbol, String interval, String decision) {
+        if (symbol == null || symbol.trim().length() == 0 || decision == null) return;
+        SQLiteDatabase database = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("symbol", symbol.trim().toUpperCase(java.util.Locale.US));
+        values.put("interval", interval == null ? "1m" : interval);
+        values.put("decision", decision);
+        values.put("recorded_at", System.currentTimeMillis());
+        database.insert("execution_audit", null, values);
+        database.execSQL("DELETE FROM execution_audit WHERE id NOT IN " +
+                "(SELECT id FROM execution_audit ORDER BY id DESC LIMIT 100)");
     }
 
     private void createResetHistoryTable(SQLiteDatabase db) {
