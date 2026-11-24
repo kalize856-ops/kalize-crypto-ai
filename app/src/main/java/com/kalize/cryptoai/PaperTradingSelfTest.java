@@ -108,7 +108,7 @@ public final class PaperTradingSelfTest {
             passed += record(report, "Synthetic candles train and assess the AI model",
                     learned > 0 && assessment.candleSamples > 0 &&
                             !"INSUFFICIENT DATA".equals(assessment.signal));
-            report.append("\\n\\nAI STAGE DETAIL · signal=").append(assessment.signal)
+            report.append("\n\nAI STAGE DETAIL · signal=").append(assessment.signal)
                     .append(" · confidence=").append(String.format(java.util.Locale.US, "%.1f", assessment.confidence))
                     .append("% · probability=").append(String.format(java.util.Locale.US, "%.4f", assessment.probability))
                     .append(" · newly learned=").append(learned)
@@ -136,14 +136,14 @@ public final class PaperTradingSelfTest {
                     "UPWARD BIAS".equals(assessment.signal) &&
                             assessment.confidence >= 5.0 && automatedEntryOpened);
             double pipelineCash = scalar(sql, "SELECT cash_balance FROM wallet WHERE id=1");
-            report.append("\\nCONTROLLER STAGE DETAIL · ").append(decision)
-                    .append("\\nAutomated positions opened=").append(pipelineOpenPositions)
+            report.append("\nCONTROLLER STAGE DETAIL · ").append(decision)
+                    .append("\nAutomated positions opened=").append(pipelineOpenPositions)
                     .append(" · audit rows=").append(auditRows)
                     .append(" · remaining virtual cash=$")
                     .append(String.format(java.util.Locale.US, "%.2f", pipelineCash));
             if (assessment.signal.equals("UPWARD BIAS") &&
                     assessment.confidence >= 5.0 && pipelineOpenPositions == 0) {
-                report.append("\\nDIAGNOSTIC · AI qualified, but no position was found. Check the controller decision above for the exact gate or simulator rejection.");
+                report.append("\nDIAGNOSTIC · AI qualified, but no position was found. Check the controller decision above for the exact gate or simulator rejection.");
             }
 
             boolean firstClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
