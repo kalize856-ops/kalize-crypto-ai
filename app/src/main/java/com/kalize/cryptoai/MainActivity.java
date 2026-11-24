@@ -854,7 +854,7 @@ public class MainActivity extends Activity {
         } finally { today.close(); }
         Cursor auditCounts = db.rawQuery(
                 "SELECT " +
-                "COALESCE(SUM(CASE WHEN decision LIKE 'PAPER TRADE OPENED%' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN decision LIKE 'PAPER TRADE OPENED%' OR decision LIKE 'STARTUP PAPER TEST TRADE OPENED%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY BLOCKED%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY REJECTED BY SIMULATOR%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE 'NO ENTRY%' THEN 1 ELSE 0 END),0), " +
