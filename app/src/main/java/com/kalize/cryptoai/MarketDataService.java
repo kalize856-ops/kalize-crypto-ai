@@ -549,11 +549,14 @@ public final class MarketDataService extends Service {
             database.putSetting("market_feed_last_candle_symbol", symbol);
 
             String automation;
-            if (database.claimAutomationCandle(symbol, "1m", openTime)) {
-                // The just-closed candle supplies the next label for the prior candle.
+            if (!database.isAutomationCandleProcessed(symbol, "1m", openTime)) {
+                // Evaluate before advancing the durable watermark. If the app is
+                // interrupted during evaluation, the candle remains eligible on
+                // the next delivery instead of being permanently skipped.
                 learner.learn(symbol, "1m");
                 automation = autoTrader.onCompletedCandle(
                         symbol, "1m", close, candleLow, candleHigh);
+                database.claimAutomationCandle(symbol, "1m", openTime);
             } else {
                 automation = "DUPLICATE / OLDER CANDLE · paper evaluation already completed.";
             }
