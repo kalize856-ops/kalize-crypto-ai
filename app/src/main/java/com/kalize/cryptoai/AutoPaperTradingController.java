@@ -164,7 +164,11 @@ public final class AutoPaperTradingController {
         // the stop. Size against that same distance or every max-risk-sized entry
         // can exceed the 1% limit by the amount of entry slippage and be rejected.
         double expectedExecutionPrice = marketPrice * (1.0 + PaperTradingEngine.SLIPPAGE_RATE);
-        double quantityByRisk = riskBudget / (expectedExecutionPrice - stop);
+        // Include both-side fees and adverse exit slippage in the 1% risk budget.
+        double expectedStopExit = stop * (1.0 - PaperTradingEngine.SLIPPAGE_RATE);
+        double lossPerUnit = expectedExecutionPrice * (1.0 + PaperTradingEngine.FEE_RATE)
+                - expectedStopExit * (1.0 - PaperTradingEngine.FEE_RATE);
+        double quantityByRisk = lossPerUnit > 0.0 ? riskBudget / lossPerUnit : 0.0;
         double maxNotional = equity * PaperTradingEngine.MAX_POSITION_VALUE;
         double quantityBySize = maxNotional / expectedExecutionPrice;
         double quantity = Math.min(quantityByRisk, quantityBySize);
