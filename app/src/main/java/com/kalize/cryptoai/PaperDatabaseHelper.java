@@ -161,6 +161,9 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
             history.put("previous_realized_pnl", previousPnl);
             db.insert("reset_history", null, history);
             db.delete("paper_trades", null, null);
+            // A reset starts a genuinely fresh practice session: clear stale exit cooldowns
+            // and per-symbol decisions so the dashboard cannot show the previous run.
+            db.delete("app_settings", "setting_key GLOB 'auto_last_exit_*' OR setting_key GLOB 'auto_last_decision_*' OR setting_key GLOB 'auto_last_decision_at_*'", null);
             ContentValues wallet = new ContentValues();
             wallet.put("starting_balance", 100.0);
             wallet.put("cash_balance", 100.0);
