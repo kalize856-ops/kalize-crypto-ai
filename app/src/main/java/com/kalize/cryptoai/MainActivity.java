@@ -835,6 +835,28 @@ public class MainActivity extends Activity {
         try {
             if (today.moveToFirst()) out.append("\nEntries opened today: ").append(today.getInt(0));
         } finally { today.close(); }
+        Cursor auditCounts = db.rawQuery(
+                "SELECT " +
+                "COALESCE(SUM(CASE WHEN decision LIKE 'PAPER TRADE OPENED%' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY BLOCKED%' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY REJECTED BY SIMULATOR%' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN decision LIKE 'NO ENTRY%' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN decision LIKE '%EXECUTED:%' OR decision LIKE 'POSITION MANAGEMENT%' THEN 1 ELSE 0 END),0) " +
+                "FROM execution_audit", null);
+        try {
+            if (auditCounts.moveToFirst()) {
+                out.append("\nExecution checks recorded: ")
+                        .append(auditCounts.getInt(0) + auditCounts.getInt(1) +
+                                auditCounts.getInt(2) + auditCounts.getInt(3) + auditCounts.getInt(4))
+                        .append("\nAccepted entries in audit: ").append(auditCounts.getInt(0))
+                        .append("\nBlocked by entry rules: ").append(auditCounts.getInt(1))
+                        .append("\nRejected by simulator: ").append(auditCounts.getInt(2))
+                        .append("\nSignals waiting: ").append(auditCounts.getInt(3))
+                        .append("\nPosition/exit events: ").append(auditCounts.getInt(4))
+                        .append("\nAudit window: latest 100 decisions.");
+            }
+        } finally { auditCounts.close(); }
+
         out.append("\n\nPER-COIN EXECUTION STATUS");
 
         for (String symbol : symbols) {
@@ -944,6 +966,7 @@ public class MainActivity extends Activity {
         if (value.contains("PAPER TRADE OPENED")) return "ENTRY";
         if (value.contains("STOP EXECUTED") || value.contains("TAKE-PROFIT EXECUTED") ||
                 value.contains("SIMULATED POSITION CLOSED")) return "EXIT";
+        if (value.contains("ENTRY REJECTED BY SIMULATOR")) return "REJECTED";
         if (value.contains("ENTRY BLOCKED")) return "BLOCKED";
         if (value.contains("NO ENTRY")) return "WAITING";
         if (value.contains("POSITION MANAGEMENT")) return "MANAGING";
