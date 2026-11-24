@@ -528,4 +528,27 @@ public class PaperTradingLedgerTest {
         }
     }
 
+    @Test
+    public void firstRunNeutralAiStillOpensClearlyLabelledLowRiskPaperProbe() {
+        long now = System.currentTimeMillis();
+        double price = 100.0;
+        for (int i = 0; i < 7; i++) {
+            long openTime = now - (6L - i) * 60000L - 10000L;
+            assertTrue(database.saveCandle("BTCUSDT", "1m", openTime,
+                    price, price * 1.001, price * 0.999, price, 100.0));
+        }
+
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        String decision = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+
+        assertTrue("Expected a first-run diagnostic paper trade, got: " + decision,
+                decision.contains("STARTUP PAPER TEST TRADE OPENED"));
+        assertTrue(decision.contains("not an AI signal"));
+        assertEquals(1, new PaperTradingEngine(database).getOpenPositionCount());
+        assertTrue("Probe must use only a small part of the practice wallet",
+                database.getCashBalance() > 85.0);
+        assertEquals("true", database.getSetting("auto_startup_probe_completed", "false"));
+    }
+
 }
