@@ -114,6 +114,7 @@ public final class MarketDataService extends Service {
     private volatile long lastMessageAt = 0L;
     private volatile long connectStartedAt = 0L;
     private long lastMessagePersistedAt = 0L;
+    private long lastPayloadPersistedAt = 0L;
     private boolean staleFeedReported = false;
     private static final long STALE_FEED_MS = 90000L;
     private static final long CONNECTING_TIMEOUT_MS = 30000L;
@@ -508,12 +509,17 @@ public final class MarketDataService extends Service {
                 double high = number(data.optString("h"));
                 double low = number(data.optString("l"));
                 double quoteVolume = number(data.optString("q"));
-                if (last > 0 && !Double.isNaN(change)) broadcastQuote(symbol, last, change, high, low, quoteVolume);
+                if (!isTrackedSymbol(symbol) || !validPositive(last) ||
+                        !validNumber(change) || !validPositive(high) ||
+                        !validPositive(low) || high < low || !validNumber(quoteVolume) ||
+                        quoteVolume < 0.0) return;
+                markValidMarketPayload("24hrTicker");
+                broadcastQuote(symbol, last, change, high, low, quoteVolume);
                 return;
             }
             if (!"kline".equals(event)) return;
             JSONObject k = data.optJSONObject("k");
-            if (k == null || !k.optBoolean("x", false)) return; // Ignore unfinished candles.
+            if (k == null) return;
 
             String symbol = data.optString("s");
             long openTime = k.optLong("t", 0L);
@@ -521,10 +527,18 @@ public final class MarketDataService extends Service {
             double high = number(k.optString("h"));
             double low = number(k.optString("l"));
             double close = number(k.optString("c"));
-            double candleLow = number(k.optString("l"));
-            double candleHigh = number(k.optString("h"));
             double volume = number(k.optString("v"));
-            if (openTime <= 0 || !database.saveCandleIfNew(
+            if (!isTrackedSymbol(symbol) || openTime <= 0L ||
+                    !validPositive(open) || !validPositive(high) ||
+                    !validPositive(low) || !validPositive(close) ||
+                    !validNumber(volume) || volume < 0.0 ||
+                    high < low || high < open || high < close ||
+                    low > open || low > close) return;
+            markValidMarketPayload("kline");
+            if (!k.optBoolean("x", false)) return; // Valid live update, not a completed candle.
+            double candleLow = low;
+            double candleHigh = high;
+            if (!database.saveCandleIfNew(
                     symbol, "1m", openTime, open, high, low, close, volume)) return;
             database.putSetting("market_feed_last_candle_at", String.valueOf(System.currentTimeMillis()));
             database.putSetting("market_feed_last_candle_symbol", symbol);
@@ -543,6 +557,30 @@ public final class MarketDataService extends Service {
         } catch (Exception ignored) {
             // Malformed or unexpected packets are discarded; the stream stays alive.
         }
+    }
+
+    private boolean isTrackedSymbol(String symbol) {
+        return "BTCUSDT".equals(symbol) || "ETHUSDT".equals(symbol) ||
+                "SOLUSDT".equals(symbol);
+    }
+
+    private boolean validNumber(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value);
+    }
+
+    private boolean validPositive(double value) {
+        return validNumber(value) && value > 0.0;
+    }
+
+    /** Persist successful payload parsing separately from raw socket activity. */
+    private void markValidMarketPayload(String type) {
+        long now = System.currentTimeMillis();
+        if (now - lastPayloadPersistedAt < MESSAGE_DIAGNOSTIC_WRITE_MS) return;
+        lastPayloadPersistedAt = now;
+        try {
+            database.putSetting("market_feed_last_payload_at", String.valueOf(now));
+            database.putSetting("market_feed_last_payload_type", type);
+        } catch (Exception ignored) { }
     }
 
     private double number(String value) {
