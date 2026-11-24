@@ -184,6 +184,32 @@ public final class PaperTradingEngine {
     public double getOpenEntryValue() {
         return scalar(helper.getReadableDatabase(),"SELECT COALESCE(SUM(quantity*entry_price),0) FROM paper_trades WHERE status='OPEN'");
     }
+
+    /** Cash invariant: starting balance + closed net P/L - open entry costs. */
+    public static final class LedgerReconciliation {
+        public final double actualCash;
+        public final double expectedCash;
+        public final double difference;
+        public final boolean consistent;
+        LedgerReconciliation(double actualCash, double expectedCash) {
+            this.actualCash = actualCash;
+            this.expectedCash = expectedCash;
+            this.difference = actualCash - expectedCash;
+            this.consistent = Math.abs(difference) <= 0.01;
+        }
+    }
+
+    public LedgerReconciliation reconcileLedger() {
+        SQLiteDatabase db = helper.getReadableDatabase();
+        double actual = scalar(db, "SELECT cash_balance FROM wallet WHERE id=1");
+        double starting = scalar(db, "SELECT starting_balance FROM wallet WHERE id=1");
+        double closedPnl = scalar(db,
+                "SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED'");
+        double openCosts = scalar(db,
+                "SELECT COALESCE(SUM(quantity*entry_price+fees),0) FROM paper_trades WHERE status='OPEN'");
+        return new LedgerReconciliation(actual, starting + closedPnl - openCosts);
+    }
+
     /** Uses the device's local calendar day so daily limits reset at local midnight. */
     static long startOfLocalDayMillis() {
         java.util.Calendar calendar = java.util.Calendar.getInstance();
