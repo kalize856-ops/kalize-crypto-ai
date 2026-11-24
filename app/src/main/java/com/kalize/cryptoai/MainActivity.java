@@ -803,12 +803,12 @@ public class MainActivity extends Activity {
         try {
             if (totals.moveToFirst()) {
                 out.append("PAPER ACCOUNT ACTIVITY")
-                        .append("\\nEntries opened: ").append(totals.getInt(0))
+                        .append("\nEntries opened: ").append(totals.getInt(0))
                         .append(" · Open now: ").append(totals.getInt(1))
                         .append(" · Closed: ").append(totals.getInt(2))
-                        .append("\\nProfitable closes: ").append(totals.getInt(3))
+                        .append("\nProfitable closes: ").append(totals.getInt(3))
                         .append(" · Realized net result: ").append(money(totals.getDouble(4)))
-                        .append("\\nVirtual cash available: ").append(money(database.getCashBalance()));
+                        .append("\nVirtual cash available: ").append(money(database.getCashBalance()));
             }
         } finally { totals.close(); }
 
@@ -821,9 +821,9 @@ public class MainActivity extends Activity {
                 "SELECT COUNT(*) FROM paper_trades WHERE opened_at>=?",
                 new String[]{String.valueOf(dayStart.getTimeInMillis())});
         try {
-            if (today.moveToFirst()) out.append("\\nEntries opened today: ").append(today.getInt(0));
+            if (today.moveToFirst()) out.append("\nEntries opened today: ").append(today.getInt(0));
         } finally { today.close(); }
-        out.append("\\n\\nPER-COIN EXECUTION STATUS");
+        out.append("\n\nPER-COIN EXECUTION STATUS");
 
         for (String symbol : symbols) {
             if (out.length() > 0) out.append("\n\n");
@@ -909,20 +909,36 @@ public class MainActivity extends Activity {
             }
         }
         Cursor audit = db.rawQuery(
-                "SELECT symbol, decision, recorded_at FROM execution_audit ORDER BY id DESC LIMIT 6", null);
+                "SELECT symbol, decision, recorded_at FROM execution_audit ORDER BY id DESC LIMIT 12", null);
         try {
             if (audit.moveToFirst()) {
                 out.append("\n\nRECENT EXECUTION AUDIT");
                 do {
                     String pair = audit.getString(0).replace("USDT", "/USDT");
+                    String detail = audit.getString(1);
                     out.append("\n").append(format.format(new java.util.Date(audit.getLong(2))))
-                            .append(" · ").append(pair).append("\n").append(audit.getString(1));
+                            .append(" · ").append(pair)
+                            .append(" · ").append(executionEventType(detail))
+                            .append("\n").append(detail);
                 } while (audit.moveToNext());
             }
         } finally { audit.close(); }
         out.append("\n\nConfidence is not a trade by itself: an entry also needs an upward signal, fresh candles, available virtual cash, and simulator risk approval.");
         return out.toString();
     }
+    private String executionEventType(String decision) {
+        if (decision == null) return "CHECK";
+        String value = decision.toUpperCase(Locale.US);
+        if (value.contains("PAPER TRADE OPENED")) return "ENTRY";
+        if (value.contains("STOP EXECUTED") || value.contains("TAKE-PROFIT EXECUTED") ||
+                value.contains("SIMULATED POSITION CLOSED")) return "EXIT";
+        if (value.contains("ENTRY BLOCKED")) return "BLOCKED";
+        if (value.contains("NO ENTRY")) return "WAITING";
+        if (value.contains("POSITION MANAGEMENT")) return "MANAGING";
+        if (value.contains("AUTO PAPER TRADING OFF")) return "PAUSED";
+        return "CHECK";
+    }
+
     private String loadModels() {
         String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
         StringBuilder result = new StringBuilder();
