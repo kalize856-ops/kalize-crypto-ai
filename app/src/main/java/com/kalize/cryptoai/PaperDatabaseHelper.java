@@ -268,6 +268,34 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         return inserted != -1L;
     }
 
+    /**
+     * Claims a completed candle for automatic paper evaluation exactly once.
+     * The per-symbol timestamp survives service reconnects and process restarts.
+     */
+    public synchronized boolean claimAutomationCandle(String symbol, String interval,
+                                                       long openTime) {
+        if (symbol == null || symbol.trim().length() == 0 ||
+                interval == null || interval.trim().length() == 0 || openTime <= 0L) {
+            return false;
+        }
+        String key = "auto_last_processed_candle_" +
+                symbol.trim().toUpperCase(java.util.Locale.US) + "_" + interval.trim();
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            String previous = getSetting(key, "0");
+            long previousTime;
+            try { previousTime = Long.parseLong(previous); }
+            catch (Exception ignored) { previousTime = 0L; }
+            if (openTime <= previousTime) return false;
+            putSetting(key, String.valueOf(openTime));
+            db.setTransactionSuccessful();
+            return true;
+        } finally {
+            db.endTransaction();
+        }
+    }
+
     /** Keeps the active candle dataset bounded to the most recent hour. */
     public int cleanExpiredCandles() {
         long cutoff = System.currentTimeMillis() - CANDLE_WINDOW_MS;
