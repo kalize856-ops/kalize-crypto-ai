@@ -189,3 +189,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - The automatic paper-entry confidence floor is 5%; learning continues while paper evaluation runs.
 - Fresh consecutive candles, short-term price confirmation, per-market cooldown, virtual-wallet limits, stop-loss monitoring and daily risk controls remain in place. Therefore 5% confidence does not guarantee an immediate trade.
 - This deliberately low threshold can produce many false signals. It is strictly for virtual simulation and is not evidence of a reliable edge. No exchange orders or real funds are supported.
+
+
+## Build 0.5.43 — isolated simulator self-test
+- Adds an on-device diagnostic that exercises the production paper-trading engine against a temporary SQLite database, not the user's saved $100 practice account.
+- Checks that a virtual position opens, entry fees reduce cash, mark-to-market P/L updates, a close realizes net P/L, exit fees are included, the position is closed, and the wallet reconciles.
+- The temporary test database is closed and deleted after the check. The diagnostic never calls an exchange or changes the real practice ledger.
+- Corrects the execution monitor so its summary counts only the latest 100 audit decisions, matching the bounded audit history.
