@@ -812,6 +812,11 @@ public class MainActivity extends Activity {
         return out.toString();
     }
 
+    private long parseLongSetting(String key, long fallback) {
+        try { return Long.parseLong(database.getSetting(key, String.valueOf(fallback))); }
+        catch (Exception ignored) { return fallback; }
+    }
+
     /** Shows the last persisted automatic execution decision for each paper pair. */
     private String loadAutoExecutionMonitor() {
         String[] symbols = new String[]{"BTCUSDT", "ETHUSDT", "SOLUSDT"};
@@ -876,6 +881,23 @@ public class MainActivity extends Activity {
                         .append("\nAudit window: latest 100 decisions.");
             }
         } finally { auditCounts.close(); }
+
+        String feedStatus = database.getSetting("market_feed_status", "No market connection status recorded.");
+        String feedError = database.getSetting("market_feed_last_error", "");
+        long feedSuccessAt = parseLongSetting("market_feed_last_success_at", 0L);
+        long feedMessageAt = parseLongSetting("market_feed_last_message_at", 0L);
+        out.append("\n\nMARKET CONNECTION DIAGNOSTICS")
+                .append("\nCurrent feed status: ").append(feedStatus)
+                .append("\nLast successful connection: ")
+                .append(feedSuccessAt > 0L ? format.format(new java.util.Date(feedSuccessAt)) : "not recorded")
+                .append("\nLast WebSocket message: ")
+                .append(feedMessageAt > 0L ? ((System.currentTimeMillis() - feedMessageAt) / 1000L) + "s ago" : "not recorded")
+                .append("\nLast connection error: ")
+                .append(feedError.length() > 0 ? feedError : "none recorded");
+        long feedErrorAt = parseLongSetting("market_feed_last_error_at", 0L);
+        if (feedErrorAt > 0L) {
+            out.append(" · ").append(format.format(new java.util.Date(feedErrorAt)));
+        }
 
         out.append("\n\nPER-COIN EXECUTION STATUS");
 
