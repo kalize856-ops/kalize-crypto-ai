@@ -22,7 +22,7 @@ A lightweight Android paper-trading research app. It is a simulator only: it doe
 - Selectable chart history windows from 15 minutes to 1 hour; the chart displays up to 300 recent aggregated candles.
 - Automatic cleanup of candles older than the latest 1 hour.
 - Paper-trade ledger table and app-settings table.
-- On-device incremental learning from completed 1-minute candles and simulated trade outcomes, with paper trading allowed to run while learning continues.
+- On-device incremental learning from completed 1-minute candles and simulated trade outcomes, with paper trading allowed to run while learning continues.\n- Startup backfill and live WebSocket candle events share a synchronized paper-execution path to prevent concurrent duplicate evaluations.
 - Optional automatic AI paper trading, OFF by default, with local-only simulated entries and exits.
 - Simulated risk limits: up to 1% estimated risk per trade, 2% daily loss pause, and 25% maximum position size.
 - Real-money trading and exchange order submission are intentionally not included.
