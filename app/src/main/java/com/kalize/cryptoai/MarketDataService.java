@@ -538,22 +538,27 @@ public final class MarketDataService extends Service {
             if (!k.optBoolean("x", false)) return; // Valid live update, not a completed candle.
             double candleLow = low;
             double candleHigh = high;
-            if (!database.saveCandleIfNew(
-                    symbol, "1m", openTime, open, high, low, close, volume)) return;
+            // Historical backfill can insert this exact candle before the live
+            // WebSocket close event arrives. Confirm it exists, but do not let
+            // storage deduplication suppress its first automation evaluation.
+            database.saveCandleIfNew(
+                    symbol, "1m", openTime, open, high, low, close, volume);
+            if (!database.hasCandle(symbol, "1m", openTime)) return;
+
             database.putSetting("market_feed_last_candle_at", String.valueOf(System.currentTimeMillis()));
             database.putSetting("market_feed_last_candle_symbol", symbol);
 
-            // The just-closed candle supplies the next label for the prior candle.
-            learner.learn(symbol, "1m");
             String automation;
             if (database.claimAutomationCandle(symbol, "1m", openTime)) {
+                // The just-closed candle supplies the next label for the prior candle.
+                learner.learn(symbol, "1m");
                 automation = autoTrader.onCompletedCandle(
                         symbol, "1m", close, candleLow, candleHigh);
             } else {
                 automation = "DUPLICATE / OLDER CANDLE · paper evaluation already completed.";
             }
-            broadcast(symbol + " · 1m candle saved\n" + automation);
-            updateNotification("Live · " + symbol + " candle saved");
+            broadcast(symbol + " · 1m candle processed\n" + automation);
+            updateNotification("Live · " + symbol + " candle processed");
         } catch (Exception ignored) {
             // Malformed or unexpected packets are discarded; the stream stays alive.
         }
