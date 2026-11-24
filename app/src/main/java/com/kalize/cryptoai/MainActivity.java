@@ -214,7 +214,7 @@ public class MainActivity extends Activity {
         addHistoryFilterSelector();
 
         addPanel("SAVED MARKET HISTORY",
-                "Learning window: 7 days\nStored candles: " + database.getStoredCandleCount() +
+                "Learning window: 1 hour\nStored candles: " + database.getStoredCandleCount() +
                 "\nExpired candles: automatically cleaned");
         addPanel("SAFETY LIMITS",
                 "Simulation only\nRisk per trade: 1% maximum\nDaily loss pause: 2%\n" +
