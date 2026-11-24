@@ -10,8 +10,8 @@ android {
         applicationId 'com.kalize.cryptoai'
         minSdk 19
         targetSdk 28
-        versionCode 51
-        versionName '0.5.40'
+        versionCode 52
+        versionName '0.5.41'
     }
 
     compileOptions {
