@@ -108,6 +108,11 @@ public final class PaperTradingSelfTest {
             passed += record(report, "Synthetic candles train and assess the AI model",
                     learned > 0 && assessment.candleSamples > 0 &&
                             !"INSUFFICIENT DATA".equals(assessment.signal));
+            report.append("\\n\\nAI STAGE DETAIL · signal=").append(assessment.signal)
+                    .append(" · confidence=").append(String.format(java.util.Locale.US, "%.1f", assessment.confidence))
+                    .append("% · probability=").append(String.format(java.util.Locale.US, "%.4f", assessment.probability))
+                    .append(" · newly learned=").append(learned)
+                    .append(" · total candle samples=").append(assessment.candleSamples);
 
             AutoPaperTradingController controller = new AutoPaperTradingController(helper);
             String decision = controller.onCompletedCandle("PIPELINETEST", "1m",
@@ -122,6 +127,18 @@ public final class PaperTradingSelfTest {
                      decision.startsWith("POSITION MANAGEMENT"));
             passed += record(report, "Production AI controller evaluates and audits a candle",
                     knownDecision && auditRows == 1);
+            int pipelineOpenPositions = (int) scalar(sql,
+                    "SELECT COUNT(*) FROM paper_trades WHERE symbol='PIPELINETEST' AND status='OPEN'");
+            double pipelineCash = scalar(sql, "SELECT cash_balance FROM wallet WHERE id=1");
+            report.append("\\nCONTROLLER STAGE DETAIL · ").append(decision)
+                    .append("\\nAutomated positions opened=").append(pipelineOpenPositions)
+                    .append(" · audit rows=").append(auditRows)
+                    .append(" · remaining virtual cash=$")
+                    .append(String.format(java.util.Locale.US, "%.2f", pipelineCash));
+            if (assessment.signal.equals("UPWARD BIAS") &&
+                    assessment.confidence >= 5.0 && pipelineOpenPositions == 0) {
+                report.append("\\nDIAGNOSTIC · AI qualified, but no position was found. Check the controller decision above for the exact gate or simulator rejection.");
+            }
 
             boolean firstClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
             boolean duplicateClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
