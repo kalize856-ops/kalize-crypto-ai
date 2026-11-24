@@ -500,16 +500,31 @@ public final class MarketDataService extends Service {
             }
             report.append("\\n\\n").append(symbol).append(": ");
             if (found) {
-                if (database.claimAutomationCandle(symbol, "1m", openTime)) {
-                    report.append(autoTrader.onCompletedCandle(symbol, "1m", close, low, high));
-                } else {
-                    report.append("SKIPPED · latest completed candle was already evaluated.");
-                }
+                report.append(evaluatePaperCandleOnce(symbol, "1m", openTime, close, low, high));
             } else {
                 report.append("ENTRY WAITING · no completed candle is stored.");
             }
         }
         broadcast(report.toString());
+    }
+
+    /**
+     * Serializes startup-backfill and live-WebSocket evaluation through one path.
+     * The per-symbol durable watermark is checked and advanced around the same
+     * evaluation routine, preventing concurrent duplicate entries from the two
+     * delivery paths while retaining retry eligibility after an interrupted run.
+     */
+    private synchronized String evaluatePaperCandleOnce(String symbol, String interval,
+                                                          long openTime, double close,
+                                                          double candleLow, double candleHigh) {
+        if (database.isAutomationCandleProcessed(symbol, interval, openTime)) {
+            return "DUPLICATE / OLDER CANDLE · paper evaluation already completed.";
+        }
+        learner.learn(symbol, interval);
+        String decision = autoTrader.onCompletedCandle(
+                symbol, interval, close, candleLow, candleHigh);
+        database.claimAutomationCandle(symbol, interval, openTime);
+        return decision;
     }
 
     private void handleMessage(String raw) {
@@ -564,18 +579,8 @@ public final class MarketDataService extends Service {
             database.putSetting("market_feed_last_candle_at", String.valueOf(System.currentTimeMillis()));
             database.putSetting("market_feed_last_candle_symbol", symbol);
 
-            String automation;
-            if (!database.isAutomationCandleProcessed(symbol, "1m", openTime)) {
-                // Evaluate before advancing the durable watermark. If the app is
-                // interrupted during evaluation, the candle remains eligible on
-                // the next delivery instead of being permanently skipped.
-                learner.learn(symbol, "1m");
-                automation = autoTrader.onCompletedCandle(
-                        symbol, "1m", close, candleLow, candleHigh);
-                database.claimAutomationCandle(symbol, "1m", openTime);
-            } else {
-                automation = "DUPLICATE / OLDER CANDLE · paper evaluation already completed.";
-            }
+            String automation = evaluatePaperCandleOnce(
+                    symbol, "1m", openTime, close, candleLow, candleHigh);
             broadcast(symbol + " · 1m candle processed\n" + automation);
             updateNotification("Live · " + symbol + " candle processed");
         } catch (Exception ignored) {
