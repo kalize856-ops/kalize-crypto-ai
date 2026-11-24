@@ -173,17 +173,22 @@ public final class MarketDataService extends Service {
             }
 
             @Override public void onMessage(WebSocket webSocket, String text) {
+                // Ignore late frames from a socket that was replaced during reconnect.
+                if (socket != webSocket || stoppedByUser) return;
                 lastMessageAt = System.currentTimeMillis();
                 handleMessage(text);
             }
 
             @Override public void onMessage(WebSocket webSocket, ByteString bytes) {
+                // Ignore late frames from a socket that was replaced during reconnect.
+                if (socket != webSocket || stoppedByUser) return;
                 lastMessageAt = System.currentTimeMillis();
                 handleMessage(bytes.utf8());
             }
 
             @Override public void onClosing(WebSocket webSocket, int code, String reason) {
-                webSocket.close(1000, null);
+                if (socket == webSocket && !stoppedByUser)
+                    webSocket.close(1000, null);
             }
 
             @Override public void onClosed(WebSocket webSocket, int code, String reason) {
