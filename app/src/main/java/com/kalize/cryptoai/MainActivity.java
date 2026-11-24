@@ -41,6 +41,7 @@ public class MainActivity extends Activity {
     private AutoPaperTradingController autoTrader;
     private TextView marketStatus, marketHealthPanel, marketConditionPanel, marketComparisonPanel, marketQuotes, portfolioPanel, modelPanel, executionMonitorPanel, decisionJournalPanel, learningReportPanel, evolutionPanel, openTradesPanel, historyPanel, performancePanel, dailyPerformancePanel, riskExplanationPanel, resetHistoryPanel;
     private TextView profitBubbleLabel, profitBubbleValue, profitBubbleEquity, profitBubbleTrades, profitBubbleLatest;
+    private Button autoModeButton;
     private CandlestickChartView priceChart;
     private SimpleLineChartView equityChart;
     private int selectedRangeMinutes = 60;
@@ -211,6 +212,18 @@ public class MainActivity extends Activity {
         addText("AUTOMATIC PRACTICE MODE", 12, Color.rgb(22, 192, 140), true);
         addText("The bot makes practice trades by itself using live coin prices. You cannot place trades manually. It never uses real money or places real exchange orders.",
                 13, Color.LTGRAY, false);
+        autoModeButton = new Button(this);
+        styleButton(autoModeButton, true);
+        updateAutoModeButton();
+        autoModeButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                autoTrader.setEnabled(!autoTrader.isEnabled());
+                updateAutoModeButton();
+                refreshDashboard();
+            }
+        });
+        content.addView(autoModeButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         Button resetSimulation = new Button(this);
         styleButton(resetSimulation, true);
         resetSimulation.setText("Start over · reset practice money to $100");
@@ -515,6 +528,7 @@ public class MainActivity extends Activity {
         double drawdownPercent = equityPeak > 0.0 ? (drawdown / equityPeak) * 100.0 : 0.0;
         boolean cashDepleted = cash <= 0.005;
         if (cashDepleted && autoTrader.isEnabled()) autoTrader.setEnabled(false);
+        updateAutoModeButton();
         checkForPracticeNotifications(cashDepleted);
         portfolioPanel.setText((cashDepleted ? "VIRTUAL CASH DEPLETED · NEW TRADES PAUSED\n" : "") +
                 "Total virtual equity    " + money(equity) +
@@ -546,6 +560,15 @@ public class MainActivity extends Activity {
         if (evolutionPanel != null) evolutionPanel.setText(AiEvolutionEngine.buildReport(learningEngine));
     }
 
+
+    private void updateAutoModeButton() {
+        if (autoModeButton == null || autoTrader == null) return;
+        boolean enabled = autoTrader.isEnabled();
+        autoModeButton.setText(enabled
+                ? "AUTO PAPER TRADING: ON · tap to pause"
+                : "AUTO PAPER TRADING: OFF · tap to resume");
+        autoModeButton.setEnabled(!database.isVirtualCashDepleted());
+    }
 
     private void addPairSelector() {
         LinearLayout row = new LinearLayout(this);
