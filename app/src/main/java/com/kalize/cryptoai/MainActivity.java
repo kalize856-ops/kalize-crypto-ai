@@ -207,11 +207,22 @@ public class MainActivity extends Activity {
         selfTestButton.setText("Run simulator self-test");
         selfTestButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) {
-                String report = PaperTradingSelfTest.run(MainActivity.this);
-                selfTestPanel.setText(report);
-                Toast.makeText(MainActivity.this,
-                        report.startsWith("PASS") ? "Simulator self-test passed" : "Simulator self-test found a problem",
-                        Toast.LENGTH_LONG).show();
+                selfTestButton.setEnabled(false);
+                selfTestPanel.setText("RUNNING CHECK · isolated test account…");
+                new Thread(new Runnable() {
+                    @Override public void run() {
+                        final String report = PaperTradingSelfTest.run(MainActivity.this);
+                        selfTestPanel.post(new Runnable() {
+                            @Override public void run() {
+                                selfTestPanel.setText(report);
+                                selfTestButton.setEnabled(true);
+                                Toast.makeText(MainActivity.this,
+                                        report.startsWith("PASS") ? "Simulator self-test passed" : "Simulator self-test found a problem",
+                                        Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    }
+                }, "Kalize-Manual-SelfTest").start();
             }
         });
         content.addView(selfTestButton, new LinearLayout.LayoutParams(
@@ -234,6 +245,7 @@ public class MainActivity extends Activity {
         learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
         evolutionPanel = addPanel("AI EVOLUTION MODE", "Evaluating model quality and safe-improvement readiness…");
         openTradesPanel = addPanel("TRADES THE AI IS WATCHING", "No open positions.");
+        addManualPaperControls();
         performancePanel = addPanel("TRADE RESULTS", "Waiting for closed paper trades…");
         addPerformanceRangeSelector();
         dailyPerformancePanel = addPanel("TODAY'S PRACTICE REPORT", loadDailyPerformanceReport(database.getReadableDatabase()));
@@ -610,6 +622,92 @@ public class MainActivity extends Activity {
         if (evolutionPanel != null) evolutionPanel.setText(AiEvolutionEngine.buildReport(learningEngine));
     }
 
+
+    /**
+     * Manual controls operate on the same virtual ledger and risk checks as the bot.
+     * Users must pause automation before making a manual practice entry.
+     */
+    private void addManualPaperControls() {
+        addText("MANUAL PRACTICE CONTROLS", 12, Color.rgb(22, 192, 140), true);
+        addText("Pause automatic mode first. BUY and CLOSE use virtual money only, live saved prices, simulated costs, and the same account risk limits.", 12, Color.LTGRAY, false);
+        final TextView manualStatus = addPanel("MANUAL TRADE STATUS", "Select a coin above, then pause auto mode to use manual practice controls.");
+        Button buyButton = new Button(this);
+        styleButton(buyButton, true);
+        buyButton.setText("BUY SELECTED COIN · VIRTUAL");
+        buyButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                if (autoTrader.isEnabled()) {
+                    manualStatus.setText("PAUSED · Tap AUTO PAPER TRADING to turn it OFF before placing a manual practice entry.");
+                    return;
+                }
+                SQLiteDatabase db = database.getReadableDatabase();
+                double price = latestPrice(db, selectedSymbol);
+                long age = latestCandleAge(db, selectedSymbol);
+                if (price <= 0.0 || age > 180000L) {
+                    manualStatus.setText("ENTRY NOT PLACED · no recent completed 1-minute price is available for " + selectedSymbol + ".");
+                    return;
+                }
+                double cash = database.getCashBalance();
+                double equity = cash + tradingEngine.getOpenEntryValue();
+                double stop = price * 0.98;
+                double expectedEntry = price * (1.0 + PaperTradingEngine.SLIPPAGE_RATE);
+                double expectedStop = stop * (1.0 - PaperTradingEngine.SLIPPAGE_RATE);
+                double lossPerUnit = expectedEntry * (1.0 + PaperTradingEngine.FEE_RATE)
+                        - expectedStop * (1.0 - PaperTradingEngine.FEE_RATE);
+                if (cash <= 0.005 || lossPerUnit <= 0.0 || equity <= 0.0) {
+                    manualStatus.setText("ENTRY NOT PLACED · virtual cash or risk calculation is unavailable.");
+                    return;
+                }
+                double byRisk = (equity * PaperTradingEngine.MAX_RISK_PER_TRADE) / lossPerUnit;
+                double bySize = (equity * PaperTradingEngine.MAX_POSITION_VALUE) / expectedEntry;
+                double quantity = Math.min(byRisk, bySize);
+                PaperTradingEngine.Result result = tradingEngine.buy(selectedSymbol, quantity, price, stop);
+                manualStatus.setText(result.success
+                        ? "MANUAL PAPER ENTRY CONFIRMED · " + selectedSymbol + " · trade #" + result.tradeId
+                                + "\nVirtual position value: " + money(result.amount)
+                                + "\nEntry: " + money(price) + " · stop: " + money(stop)
+                                + "\nSimulated fee and slippage applied. No real order sent."
+                        : "ENTRY REJECTED · " + result.message);
+                refreshDashboard();
+            }
+        });
+        content.addView(buyButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        Button closeButton = new Button(this);
+        styleButton(closeButton, false);
+        closeButton.setText("CLOSE SELECTED COIN POSITION · VIRTUAL");
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                SQLiteDatabase db = database.getReadableDatabase();
+                Cursor position = db.rawQuery(
+                        "SELECT id FROM paper_trades WHERE symbol=? AND status='OPEN' ORDER BY opened_at DESC LIMIT 1",
+                        new String[]{selectedSymbol});
+                long tradeId = -1L;
+                try { if (position.moveToFirst()) tradeId = position.getLong(0); }
+                finally { position.close(); }
+                if (tradeId <= 0L) {
+                    manualStatus.setText("NO OPEN POSITION · There is no open " + selectedSymbol + " practice trade to close.");
+                    return;
+                }
+                double price = latestPrice(db, selectedSymbol);
+                long age = latestCandleAge(db, selectedSymbol);
+                if (price <= 0.0 || age > 180000L) {
+                    manualStatus.setText("CLOSE WAITING · a recent market price is required to calculate the simulated exit.");
+                    return;
+                }
+                PaperTradingEngine.Result result = tradingEngine.sell(tradeId, price);
+                manualStatus.setText(result.success
+                        ? "MANUAL PAPER CLOSE CONFIRMED · trade #" + result.tradeId
+                                + "\nNet practice result: " + money(result.amount)
+                                + "\nExit costs included. AI learns from AI-tagged trades only."
+                        : "CLOSE FAILED · " + result.message);
+                refreshDashboard();
+            }
+        });
+        content.addView(closeButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+    }
 
     private void updateAutoModeButton() {
         if (autoModeButton == null || autoTrader == null) return;
