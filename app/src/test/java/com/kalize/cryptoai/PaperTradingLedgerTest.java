@@ -388,6 +388,32 @@ public class PaperTradingLedgerTest {
         assertEquals(100.0, database.getCashBalance(), 0.000001);
     }
 
+
+    @Test
+    public void ledgerReconciliationMatchesWalletWithOpenAndClosedPositions() {
+        PaperTradingEngine engine = new PaperTradingEngine(database);
+        PaperTradingEngine.Result first = engine.buy("AAAUSDT", 0.1, 100.0, 98.0);
+        assertTrue(first.message, first.success);
+        PaperTradingEngine.LedgerReconciliation afterOpen = engine.reconcileLedger();
+        assertTrue("Open entry must reconcile: " + afterOpen.difference, afterOpen.consistent);
+
+        PaperTradingEngine.Result closed = engine.sell(first.tradeId, 103.0);
+        assertTrue(closed.message, closed.success);
+        PaperTradingEngine.LedgerReconciliation afterWin = engine.reconcileLedger();
+        assertTrue("Closed winning trade must reconcile: " + afterWin.difference, afterWin.consistent);
+
+        PaperTradingEngine.Result second = engine.buy("BBBUSDT", 0.1, 100.0, 98.0);
+        assertTrue(second.message, second.success);
+        PaperTradingEngine.LedgerReconciliation mixed = engine.reconcileLedger();
+        assertTrue("Closed history plus open position must reconcile: " + mixed.difference, mixed.consistent);
+
+        PaperTradingEngine.Result loss = engine.sell(second.tradeId, 95.0);
+        assertTrue(loss.message, loss.success);
+        PaperTradingEngine.LedgerReconciliation afterLoss = engine.reconcileLedger();
+        assertTrue("Winning and losing closes must reconcile: " + afterLoss.difference, afterLoss.consistent);
+        assertEquals(afterLoss.expectedCash, database.getCashBalance(), 0.01);
+    }
+
     private void seedStrongUpwardCandles(String symbol) {
         long now = System.currentTimeMillis();
         double previous = 100.0;
