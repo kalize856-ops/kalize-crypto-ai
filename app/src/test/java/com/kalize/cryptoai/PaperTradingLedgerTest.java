@@ -32,6 +32,18 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void dailyLossWindowStartsAtDeviceLocalMidnight() {
+        java.util.Calendar expected = java.util.Calendar.getInstance();
+        expected.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        expected.set(java.util.Calendar.MINUTE, 0);
+        expected.set(java.util.Calendar.SECOND, 0);
+        expected.set(java.util.Calendar.MILLISECOND, 0);
+
+        assertEquals(expected.getTimeInMillis(),
+                PaperTradingEngine.startOfLocalDayMillis());
+    }
+
+    @Test
     public void openPositionValuationIncludesExitSlippageAndFee() {
         double quantity = 2.0;
         double marketPrice = 100.0;
