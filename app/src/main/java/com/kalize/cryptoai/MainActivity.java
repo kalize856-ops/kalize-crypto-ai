@@ -201,6 +201,21 @@ public class MainActivity extends Activity {
 
         modelPanel = addPanel("WHAT THE AI THINKS", "Loading local model…");
         executionMonitorPanel = addPanel("PAPER EXECUTION MONITOR", "Waiting for the first completed-candle execution check…");
+        final TextView selfTestPanel = addPanel("SIMULATOR SELF-TEST", "Not run yet. This test uses a temporary isolated practice database and will not touch your $100 account.");
+        Button selfTestButton = new Button(this);
+        styleButton(selfTestButton, false);
+        selfTestButton.setText("Run simulator self-test");
+        selfTestButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                String report = PaperTradingSelfTest.run(MainActivity.this);
+                selfTestPanel.setText(report);
+                Toast.makeText(MainActivity.this,
+                        report.startsWith("PASS") ? "Simulator self-test passed" : "Simulator self-test found a problem",
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+        content.addView(selfTestButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         decisionJournalPanel = addPanel("RECENT AI DECISIONS", "Waiting for the first practice decision…");
         learningReportPanel = addPanel("HOW THE AI IS LEARNING", "Collecting learning statistics…");
         evolutionPanel = addPanel("AI EVOLUTION MODE", "Evaluating model quality and safe-improvement readiness…");
@@ -842,7 +857,7 @@ public class MainActivity extends Activity {
                 "COALESCE(SUM(CASE WHEN decision LIKE 'ENTRY REJECTED BY SIMULATOR%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE 'NO ENTRY%' THEN 1 ELSE 0 END),0), " +
                 "COALESCE(SUM(CASE WHEN decision LIKE '%EXECUTED:%' OR decision LIKE 'POSITION MANAGEMENT%' THEN 1 ELSE 0 END),0) " +
-                "FROM execution_audit", null);
+                "FROM (SELECT decision FROM execution_audit ORDER BY id DESC LIMIT 100)", null);
         try {
             if (auditCounts.moveToFirst()) {
                 out.append("\nExecution checks recorded: ")
