@@ -221,6 +221,7 @@ public final class MarketDataService extends Service {
         if (stoppedByUser || connecting || socket != null) return;
         connecting = true;
         connectStartedAt = System.currentTimeMillis();
+        database.putSetting("market_feed_last_attempt_at", String.valueOf(connectStartedAt));
         broadcast("Connecting");
         Request request = new Request.Builder().url(STREAM_URL).build();
         socket = client.newWebSocket(request, new WebSocketListener() {
@@ -233,6 +234,9 @@ public final class MarketDataService extends Service {
                 staleFeedReported = false;
                 database.putSetting("market_feed_stale", "false");
                 database.putSetting("market_feed_stale_reason", "");
+                database.putSetting("market_feed_last_success_at", String.valueOf(lastMessageAt));
+                database.putSetting("market_feed_last_error", "");
+                database.putSetting("market_feed_last_error_at", "0");
                 persistMessageFreshness(lastMessageAt);
                 retrySeconds = 2;
                 broadcast("Connected · checking for candles missed during connection gap");
@@ -279,6 +283,11 @@ public final class MarketDataService extends Service {
                     connecting = false;
                     connectStartedAt = 0L;
                     String detail = describeNetworkFailure(error, response);
+                    long failedAt = System.currentTimeMillis();
+                    database.putSetting("market_feed_stale", "true");
+                    database.putSetting("market_feed_stale_reason", detail);
+                    database.putSetting("market_feed_last_error", detail);
+                    database.putSetting("market_feed_last_error_at", String.valueOf(failedAt));
                     broadcast("Market connection failed · " + detail + " · retrying automatically");
                     updateNotification("Connection failed · retrying");
                     scheduleReconnect();
