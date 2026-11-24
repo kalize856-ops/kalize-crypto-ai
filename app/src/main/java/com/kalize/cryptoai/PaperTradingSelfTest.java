@@ -16,7 +16,7 @@ public final class PaperTradingSelfTest {
         PaperDatabaseHelper helper = null;
         StringBuilder report = new StringBuilder();
         int passed = 0;
-        int total = 12;
+        int total = 13;
         try {
             context.deleteDatabase(databaseName);
             helper = new PaperDatabaseHelper(context, databaseName);
@@ -145,6 +145,31 @@ public final class PaperTradingSelfTest {
                     assessment.confidence >= 5.0 && pipelineOpenPositions == 0) {
                 report.append("\nDIAGNOSTIC · AI qualified, but no position was found. Check the controller decision above for the exact gate or simulator rejection.");
             }
+
+            // Inject a closed loss into this disposable database to verify the
+            // production controller pauses NEW entries at the daily loss threshold.
+            ContentValues lossRow = new ContentValues();
+            long lossTime = System.currentTimeMillis();
+            lossRow.put("symbol", "LOSSGUARD");
+            lossRow.put("side", "BUY");
+            lossRow.put("quantity", 1.0);
+            lossRow.put("entry_price", 10.0);
+            lossRow.put("exit_price", 7.0);
+            lossRow.put("fees", 0.0);
+            lossRow.put("realized_pnl", -2.01);
+            lossRow.put("status", "CLOSED");
+            lossRow.put("opened_at", lossTime);
+            lossRow.put("closed_at", lossTime);
+            lossRow.put("stop_loss", 9.0);
+            lossRow.put("ai_probability", 0.60);
+            lossRow.put("ai_interval", "1m");
+            sql.insert("paper_trades", null, lossRow);
+            String lossPauseDecision = controller.onCompletedCandle(
+                    "LOSSGUARD", "1m", 10.0, 9.98, 10.02);
+            passed += record(report, "Daily loss limit blocks new automated entries",
+                    lossPauseDecision != null &&
+                            lossPauseDecision.startsWith("ENTRY BLOCKED") &&
+                            lossPauseDecision.toLowerCase(java.util.Locale.US).contains("daily simulated loss limit"));
 
             boolean firstClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
             boolean duplicateClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
