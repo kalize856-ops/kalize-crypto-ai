@@ -1194,11 +1194,30 @@ public class MainActivity extends Activity {
         String statusAt = database.getSetting("market_feed_status_at", "0");
         String candleAt = database.getSetting("market_feed_last_candle_at", "0");
         String candleSymbol = database.getSetting("market_feed_last_candle_symbol", "—");
+        String messageAt = database.getSetting("market_feed_last_message_at", "0");
+        String stale = database.getSetting("market_feed_stale", "false");
+        String staleReason = database.getSetting("market_feed_stale_reason", "");
         out.append("\nFeed: ").append(feedStatus);
+        if ("true".equals(stale)) {
+            out.append("\nFEED WARNING: ").append(staleReason.length() == 0
+                    ? "No recent WebSocket messages" : staleReason);
+        }
         try {
             long statusAge = Math.max(0L, now - Long.parseLong(statusAt)) / 1000L;
             if (statusAge < 86400L) out.append(" · ").append(statusAge).append("s ago");
         } catch (Exception ignored) { }
+        try {
+            long messageTime = Long.parseLong(messageAt);
+            if (messageTime > 0L) {
+                long messageAge = Math.max(0L, now - messageTime) / 1000L;
+                out.append("\nLast WebSocket message: ").append(messageAge).append("s ago");
+                if (messageAge > 90L) out.append(" · STALE");
+            } else {
+                out.append("\nLast WebSocket message: waiting for first message");
+            }
+        } catch (Exception ignored) {
+            out.append("\nLast WebSocket message: unavailable");
+        }
         try {
             long candleAge = Math.max(0L, now - Long.parseLong(candleAt)) / 1000L;
             if (candleAge < 86400L) out.append("\nLast live candle: ").append(candleSymbol)
