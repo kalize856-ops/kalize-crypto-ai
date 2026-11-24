@@ -251,6 +251,20 @@ public class PaperTradingLedgerTest {
         assertEquals(0, engine.getOpenPositionCount());
     }
 
+    @Test
+    public void resettingPracticeAccountClearsOldAutomationCooldownAndDecision() {
+        database.putSetting("auto_last_exit_BTCUSDT", String.valueOf(System.currentTimeMillis()));
+        database.putSetting("auto_last_decision_BTCUSDT", "OLD SESSION DECISION");
+        database.putSetting("auto_last_decision_at_BTCUSDT", "123");
+
+        database.resetPaperSimulation();
+
+        assertEquals("0", database.getSetting("auto_last_exit_BTCUSDT", "0"));
+        assertEquals("", database.getSetting("auto_last_decision_BTCUSDT", ""));
+        assertEquals("", database.getSetting("auto_last_decision_at_BTCUSDT", ""));
+        assertEquals(100.0, database.getCashBalance(), 0.000001);
+    }
+
     private void seedStrongUpwardCandles(String symbol) {
         long now = System.currentTimeMillis();
         double previous = 100.0;
