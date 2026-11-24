@@ -13,7 +13,13 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
     private static final long CANDLE_WINDOW_MS = 60L * 60L * 1000L;
 
     public PaperDatabaseHelper(Context context) {
-        super(context, DB_NAME, null, DB_VERSION);
+        this(context, DB_NAME);
+    }
+
+    /** Allows isolated temporary databases for diagnostics without touching the user's ledger. */
+    PaperDatabaseHelper(Context context, String databaseName) {
+        super(context, databaseName == null || databaseName.trim().length() == 0
+                ? DB_NAME : databaseName, null, DB_VERSION);
     }
 
     @Override
