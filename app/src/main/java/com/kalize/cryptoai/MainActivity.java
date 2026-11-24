@@ -846,7 +846,41 @@ public class MainActivity extends Activity {
             String decision = database.getSetting("auto_last_decision_" + symbol, null);
             String timestamp = database.getSetting("auto_last_decision_at_" + symbol, "0");
 
+            Cursor symbolTrades = db.rawQuery(
+                    "SELECT COUNT(*), " +
+                    "COALESCE(SUM(CASE WHEN status='OPEN' THEN 1 ELSE 0 END),0), " +
+                    "COALESCE(SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END),0), " +
+                    "COALESCE(SUM(CASE WHEN status='CLOSED' THEN realized_pnl ELSE 0 END),0) " +
+                    "FROM paper_trades WHERE symbol=?", new String[]{symbol});
+            int openedCount = 0, openCount = 0, closedCount = 0;
+            double symbolNet = 0.0;
+            try {
+                if (symbolTrades.moveToFirst()) {
+                    openedCount = symbolTrades.getInt(0);
+                    openCount = symbolTrades.getInt(1);
+                    closedCount = symbolTrades.getInt(2);
+                    symbolNet = symbolTrades.getDouble(3);
+                }
+            } finally { symbolTrades.close(); }
+            Cursor lastTrade = db.rawQuery(
+                    "SELECT status, COALESCE(closed_at,opened_at) FROM paper_trades " +
+                    "WHERE symbol=? ORDER BY COALESCE(closed_at,opened_at) DESC,id DESC LIMIT 1",
+                    new String[]{symbol});
+            String lastTradeText = "No simulated entries yet.";
+            try {
+                if (lastTrade.moveToFirst()) {
+                    String tradeStatus = lastTrade.getString(0);
+                    long eventAt = lastTrade.getLong(1);
+                    lastTradeText = ("OPEN".equals(tradeStatus) ? "Position opened " : "Position closed ") +
+                            format.format(new java.util.Date(eventAt));
+                }
+            } finally { lastTrade.close(); }
+
             out.append(symbol.replace("USDT", "/USDT"))
+                    .append("\nSimulator: ").append(openedCount).append(" entries · ")
+                    .append(openCount).append(" open · ").append(closedCount).append(" closed")
+                    .append("\nClosed net result: ").append(money(symbolNet))
+                    .append("\nLast trade event: ").append(lastTradeText)
                     .append("\nCurrent AI signal: ").append(assessment.signal)
                     .append(" · confidence: ")
                     .append(String.format(Locale.US, "%.1f%%", assessment.confidence))
