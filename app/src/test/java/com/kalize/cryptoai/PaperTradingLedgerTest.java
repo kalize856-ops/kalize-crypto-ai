@@ -32,6 +32,33 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void openPositionValuationIncludesExitSlippageAndFee() {
+        double quantity = 2.0;
+        double marketPrice = 100.0;
+        double entryPrice = 99.0;
+        double entryFee = 0.198;
+        double expectedExit = marketPrice * (1.0 - PaperTradingEngine.SLIPPAGE_RATE);
+        double expectedNetProceeds = quantity * expectedExit
+                * (1.0 - PaperTradingEngine.FEE_RATE);
+
+        double liquidation = PaperTradingEngine.estimateNetLiquidationValue(quantity, marketPrice);
+        double unrealized = PaperTradingEngine.estimateUnrealizedPnl(
+                quantity, entryPrice, entryFee, marketPrice);
+
+        assertEquals(expectedNetProceeds, liquidation, 0.000001);
+        assertEquals(expectedNetProceeds - quantity * entryPrice - entryFee,
+                unrealized, 0.000001);
+    }
+
+    @Test
+    public void invalidMarketPriceCannotCreatePositiveLiquidationValue() {
+        assertEquals(0.0,
+                PaperTradingEngine.estimateNetLiquidationValue(1.0, Double.NaN), 0.0);
+        assertEquals(0.0,
+                PaperTradingEngine.estimateNetLiquidationValue(1.0, -1.0), 0.0);
+    }
+
+    @Test
     public void buyAndSellUpdateVirtualWalletAndCloseTrade() {
         PaperTradingEngine engine = new PaperTradingEngine(database);
         double startingCash = database.getCashBalance();
