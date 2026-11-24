@@ -16,7 +16,7 @@ public final class PaperTradingSelfTest {
         PaperDatabaseHelper helper = null;
         StringBuilder report = new StringBuilder();
         int passed = 0;
-        int total = 8;
+        int total = 11;
         try {
             context.deleteDatabase(databaseName);
             helper = new PaperDatabaseHelper(context, databaseName);
@@ -82,6 +82,51 @@ public final class PaperTradingSelfTest {
             double finalCash = scalar(sql, "SELECT cash_balance FROM wallet WHERE id=1");
             passed += record(report, "Final virtual cash matches realized net P/L",
                     Math.abs(finalCash - (startingCash + realizedPnl)) <= EPSILON);
+
+            // Exercise the real AI/controller path with deterministic, disposable candles.
+            // The latest three timestamps are recent and exactly one minute apart.
+            long latestOpenTime = System.currentTimeMillis() - 60000L;
+            double syntheticClose = 10.0;
+            for (int i = 0; i < 24; i++) {
+                syntheticClose *= 1.03;
+                long candleTime = latestOpenTime - (23L - i) * 60000L;
+                android.content.ContentValues candle = new android.content.ContentValues();
+                candle.put("symbol", "PIPELINETEST");
+                candle.put("interval", "1m");
+                candle.put("open_time", candleTime);
+                candle.put("open", syntheticClose / 1.03);
+                candle.put("high", syntheticClose * 1.002);
+                candle.put("low", syntheticClose * 0.998);
+                candle.put("close", syntheticClose);
+                candle.put("volume", 1000.0 + i);
+                sql.insertOrThrow("candles", null, candle);
+            }
+            OnDeviceLearningEngine pipelineLearner = new OnDeviceLearningEngine(helper);
+            int learned = pipelineLearner.learn("PIPELINETEST", "1m");
+            OnDeviceLearningEngine.Assessment assessment =
+                    pipelineLearner.assess("PIPELINETEST", "1m");
+            passed += record(report, "Synthetic candles train and assess the AI model",
+                    learned > 0 && assessment.candleSamples > 0 &&
+                            !"INSUFFICIENT DATA".equals(assessment.signal));
+
+            AutoPaperTradingController controller = new AutoPaperTradingController(helper);
+            String decision = controller.onCompletedCandle("PIPELINETEST", "1m",
+                    syntheticClose, syntheticClose * 0.998, syntheticClose * 1.002);
+            int auditRows = (int) scalar(sql,
+                    "SELECT COUNT(*) FROM execution_audit WHERE symbol='PIPELINETEST'");
+            boolean knownDecision = decision != null &&
+                    (decision.startsWith("PAPER TRADE OPENED") ||
+                     decision.startsWith("ENTRY BLOCKED") ||
+                     decision.startsWith("ENTRY REJECTED BY SIMULATOR") ||
+                     decision.startsWith("NO ENTRY") ||
+                     decision.startsWith("POSITION MANAGEMENT"));
+            passed += record(report, "Production AI controller evaluates and audits a candle",
+                    knownDecision && auditRows == 1);
+
+            boolean firstClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
+            boolean duplicateClaim = helper.claimAutomationCandle("PIPELINETEST", "1m", latestOpenTime);
+            passed += record(report, "A completed candle can only be claimed once",
+                    firstClaim && !duplicateClaim);
 
             PaperTradingEngine.LedgerReconciliation reconciliation = engine.reconcileLedger();
             passed += record(report, "Wallet and trade ledger reconcile", reconciliation.consistent);
