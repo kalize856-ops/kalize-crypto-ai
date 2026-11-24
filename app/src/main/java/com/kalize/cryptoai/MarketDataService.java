@@ -81,7 +81,10 @@ public final class MarketDataService extends Service {
                 if (socket != null) socket.cancel();
                 socket = null;
                 connecting = false;
+                database.putSetting("market_feed_stale", "true");
+                database.putSetting("market_feed_stale_reason", "Internet connection unavailable");
                 broadcast("Internet unavailable · waiting for network");
+                updateNotification("Waiting for internet connection");
                 return;
             }
             // A duplicate connectivity broadcast must not interrupt a working feed.
@@ -92,7 +95,10 @@ public final class MarketDataService extends Service {
             socket = null;
             connecting = false;
             retrySeconds = 2;
+            database.putSetting("market_feed_stale", "false");
+            database.putSetting("market_feed_stale_reason", "");
             broadcast("Network restored · reconnecting and syncing missed candles");
+            updateNotification("Network restored · reconnecting");
             connect();
         }
     };
@@ -104,9 +110,11 @@ public final class MarketDataService extends Service {
         }
     };
     private volatile long lastMessageAt = 0L;
+    private volatile long connectStartedAt = 0L;
     private long lastMessagePersistedAt = 0L;
     private boolean staleFeedReported = false;
     private static final long STALE_FEED_MS = 90000L;
+    private static final long CONNECTING_TIMEOUT_MS = 30000L;
     private static final long MESSAGE_DIAGNOSTIC_WRITE_MS = 30000L;
     private static final long CLEANUP_INTERVAL_MS = 6L * 60L * 60L * 1000L;
     private static final long BACKFILL_RETRY_MS = 5L * 60L * 1000L;
@@ -124,8 +132,21 @@ public final class MarketDataService extends Service {
     private final Runnable staleFeedCheck = new Runnable() {
         @Override public void run() {
             if (stoppedByUser) return;
-            if (socket != null && lastMessageAt > 0L &&
-                    System.currentTimeMillis() - lastMessageAt > STALE_FEED_MS && !staleFeedReported) {
+            long now = System.currentTimeMillis();
+            if (connecting && connectStartedAt > 0L &&
+                    now - connectStartedAt > CONNECTING_TIMEOUT_MS && socket != null) {
+                WebSocket stalled = socket;
+                socket = null;
+                connecting = false;
+                connectStartedAt = 0L;
+                stalled.cancel();
+                database.putSetting("market_feed_stale", "true");
+                database.putSetting("market_feed_stale_reason", "Connection handshake did not complete within 30 seconds");
+                broadcast("Connection attempt timed out · retrying");
+                updateNotification("Connection timed out · retrying");
+                scheduleReconnect();
+            } else if (socket != null && lastMessageAt > 0L &&
+                    now - lastMessageAt > STALE_FEED_MS && !staleFeedReported) {
                 staleFeedReported = true;
                 database.putSetting("market_feed_stale", "true");
                 database.putSetting("market_feed_stale_reason", "No WebSocket messages received for over 90 seconds");
@@ -180,12 +201,14 @@ public final class MarketDataService extends Service {
     private void connect() {
         if (stoppedByUser || connecting || socket != null) return;
         connecting = true;
+        connectStartedAt = System.currentTimeMillis();
         broadcast("Connecting");
         Request request = new Request.Builder().url(STREAM_URL).build();
         socket = client.newWebSocket(request, new WebSocketListener() {
             @Override public void onOpen(WebSocket webSocket, Response response) {
                 if (socket != webSocket || stoppedByUser) { webSocket.cancel(); return; }
                 connecting = false;
+                connectStartedAt = 0L;
                 lastMessageAt = System.currentTimeMillis();
                 lastMessagePersistedAt = 0L;
                 staleFeedReported = false;
@@ -226,6 +249,7 @@ public final class MarketDataService extends Service {
                 if (socket == webSocket) {
                     socket = null;
                     connecting = false;
+                    connectStartedAt = 0L;
                     scheduleReconnect();
                 }
             }
@@ -234,6 +258,7 @@ public final class MarketDataService extends Service {
                 if (socket == webSocket) {
                     socket = null;
                     connecting = false;
+                    connectStartedAt = 0L;
                     String detail = describeNetworkFailure(error, response);
                     broadcast("Market connection failed · " + detail + " · retrying automatically");
                     updateNotification("Connection failed · retrying");
