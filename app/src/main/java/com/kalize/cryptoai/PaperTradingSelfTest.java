@@ -16,7 +16,7 @@ public final class PaperTradingSelfTest {
         PaperDatabaseHelper helper = null;
         StringBuilder report = new StringBuilder();
         int passed = 0;
-        int total = 11;
+        int total = 12;
         try {
             context.deleteDatabase(databaseName);
             helper = new PaperDatabaseHelper(context, databaseName);
@@ -129,6 +129,12 @@ public final class PaperTradingSelfTest {
                     knownDecision && auditRows == 1);
             int pipelineOpenPositions = (int) scalar(sql,
                     "SELECT COUNT(*) FROM paper_trades WHERE symbol='PIPELINETEST' AND status='OPEN'");
+            boolean automatedEntryOpened = decision != null &&
+                    decision.startsWith("PAPER TRADE OPENED") &&
+                    pipelineOpenPositions == 1;
+            passed += record(report, "AI-qualified signal opens a real virtual ledger position",
+                    "UPWARD BIAS".equals(assessment.signal) &&
+                            assessment.confidence >= 5.0 && automatedEntryOpened);
             double pipelineCash = scalar(sql, "SELECT cash_balance FROM wallet WHERE id=1");
             report.append("\\nCONTROLLER STAGE DETAIL · ").append(decision)
                     .append("\\nAutomated positions opened=").append(pipelineOpenPositions)
