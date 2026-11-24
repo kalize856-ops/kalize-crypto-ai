@@ -232,6 +232,25 @@ public class PaperTradingLedgerTest {
         assertEquals(1, database.getClosedTradeCount());
     }
 
+    @Test
+    public void manualCloseStartsAutomaticReentryCooldown() {
+        seedStrongUpwardCandles("BTCUSDT");
+        PaperTradingEngine engine = new PaperTradingEngine(database);
+        PaperTradingEngine.Result manual = engine.buy("BTCUSDT", 0.1, 100.0, 98.0);
+        assertTrue(manual.message, manual.success);
+        PaperTradingEngine.Result closed = engine.sell(manual.tradeId, 101.0);
+        assertTrue(closed.message, closed.success);
+
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+        String decision = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+
+        assertTrue("Manual close must prevent an immediate automatic re-entry: " + decision,
+                decision.contains("re-entry cooldown"));
+        assertEquals(0, engine.getOpenPositionCount());
+    }
+
     private void seedStrongUpwardCandles(String symbol) {
         long now = System.currentTimeMillis();
         double previous = 100.0;
