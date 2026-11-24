@@ -32,6 +32,33 @@ public final class PaperTradingEngine {
         }
     }
 
+    /**
+     * Estimates cash received if an open position were liquidated now,
+     * including adverse exit slippage and the exit fee.
+     */
+    public static double estimateNetLiquidationValue(double quantity, double marketPrice) {
+        if (!finitePositiveValue(quantity) || !finitePositiveValue(marketPrice)) return 0.0;
+        double exitPrice = marketPrice * (1.0 - SLIPPAGE_RATE);
+        return quantity * exitPrice * (1.0 - FEE_RATE);
+    }
+
+    /** Net unrealized P/L after entry and estimated liquidation costs. */
+    public static double estimateUnrealizedPnl(double quantity, double entryPrice,
+                                                double entryFee, double marketPrice) {
+        if (!finitePositiveValue(quantity) || !finitePositiveValue(entryPrice) ||
+                !finiteNonNegativeValue(entryFee) || !finitePositiveValue(marketPrice)) return 0.0;
+        return estimateNetLiquidationValue(quantity, marketPrice)
+                - (quantity * entryPrice) - entryFee;
+    }
+
+    private static boolean finitePositiveValue(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value) && value > 0.0;
+    }
+
+    private static boolean finiteNonNegativeValue(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value) && value >= 0.0;
+    }
+
     /** Existing manual paper-trade entry point; no AI feedback is attached. */
     public Result buy(String symbol,double quantity,double marketPrice,double stopLoss) {
         return buyInternal(symbol,quantity,marketPrice,stopLoss,-1,null);
