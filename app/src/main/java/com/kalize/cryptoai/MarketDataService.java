@@ -498,7 +498,7 @@ public final class MarketDataService extends Service {
             } finally {
                 cursor.close();
             }
-            report.append("\\n\\n").append(symbol).append(": ");
+            report.append("\n\n").append(symbol).append(": ");
             if (found) {
                 report.append(evaluatePaperCandleOnce(symbol, "1m", openTime, close, low, high));
             } else {
