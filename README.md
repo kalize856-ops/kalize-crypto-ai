@@ -229,3 +229,10 @@ The disposable simulator self-test now reports the AI stage (signal, confidence,
 ## Build 0.5.48
 
 The disposable simulator self-test now includes a required end-to-end AI entry check: it trains the on-device model on a controlled rising-candle dataset, verifies the resulting upward signal meets the 5% paper-entry threshold, calls the production automatic controller, and checks that a corresponding OPEN virtual-ledger position exists. The test uses its own temporary database and cannot spend or change the saved practice wallet. This is a simulator integration check, not evidence of live-market performance.
+
+
+## Build 0.5.49 — execution trace clarity and diagnostic formatting
+- Corrects escaped newline sequences in the simulator self-test and startup execution report so each diagnostic stage appears on its own readable line.
+- Extends each per-market execution monitor entry with the model's raw probability and the timestamp of the latest completed candle, alongside signal, confidence, freshness, decision and trade counts.
+- Keeps the trace read-only: it does not change entry rules, virtual balances, risk limits or exchange connectivity.
+- Android build and device verification are still required before treating runtime behavior as confirmed.
