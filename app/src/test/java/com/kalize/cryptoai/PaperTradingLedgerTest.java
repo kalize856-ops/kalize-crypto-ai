@@ -153,6 +153,35 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void pausedAutoModeStillMonitorsAndClosesExistingPosition() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+        String opened = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+        assertTrue(opened, opened.contains("PAPER TRADE OPENED"));
+
+        Cursor position = database.getReadableDatabase().rawQuery(
+                "SELECT stop_loss FROM paper_trades WHERE symbol='BTCUSDT' AND status='OPEN'", null);
+        double stop;
+        try {
+            assertTrue(position.moveToFirst());
+            stop = position.getDouble(0);
+        } finally {
+            position.close();
+        }
+
+        controller.setEnabled(false);
+        String exit = controller.onCompletedCandle(
+                "BTCUSDT", "1m", stop * 0.99, stop * 0.99, stop * 0.995);
+
+        assertTrue("Paused mode must still execute existing protective exits: " + exit,
+                exit.contains("STOP EXECUTED"));
+        assertEquals(0, new PaperTradingEngine(database).getOpenPositionCount());
+        assertFalse(controller.isEnabled());
+    }
+
+    @Test
     public void automaticPaperControllerClosesPositionWhenStopIsReached() {
         seedStrongUpwardCandles("BTCUSDT");
         AutoPaperTradingController controller = new AutoPaperTradingController(database);
