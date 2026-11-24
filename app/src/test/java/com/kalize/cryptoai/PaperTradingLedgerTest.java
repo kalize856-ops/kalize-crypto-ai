@@ -174,6 +174,42 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void backfilledCandleCanStillReceiveItsFirstAutomationEvaluation() {
+        seedStrongUpwardCandles("BTCUSDT");
+        Cursor latest = database.getReadableDatabase().rawQuery(
+                "SELECT open_time, open, high, low, close, volume FROM candles " +
+                        "WHERE symbol='BTCUSDT' AND interval='1m' ORDER BY open_time DESC LIMIT 1",
+                null);
+        long openTime;
+        double open, high, low, close, volume;
+        try {
+            assertTrue(latest.moveToFirst());
+            openTime = latest.getLong(0);
+            open = latest.getDouble(1);
+            high = latest.getDouble(2);
+            low = latest.getDouble(3);
+            close = latest.getDouble(4);
+            volume = latest.getDouble(5);
+        } finally {
+            latest.close();
+        }
+
+        // Simulate the history backfill winning the race against the live close event.
+        assertFalse(database.saveCandleIfNew(
+                "BTCUSDT", "1m", openTime, open, high, low, close, volume));
+        assertTrue(database.hasCandle("BTCUSDT", "1m", openTime));
+        assertTrue("Stored history must not consume the live automation watermark",
+                database.claimAutomationCandle("BTCUSDT", "1m", openTime));
+
+        String decision = new AutoPaperTradingController(database).onCompletedCandle(
+                "BTCUSDT", "1m", close, low, high);
+        assertTrue("Expected the backfilled candle's first paper evaluation: " + decision,
+                decision.contains("PAPER TRADE OPENED"));
+        assertFalse("The same candle must not be evaluated twice",
+                database.claimAutomationCandle("BTCUSDT", "1m", openTime));
+    }
+
+    @Test
     public void duplicateCompletedCandleIsIgnored() {
         long openTime = System.currentTimeMillis() - 60000L;
         assertTrue(database.saveCandleIfNew(
