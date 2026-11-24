@@ -198,14 +198,18 @@ public class PaperTradingLedgerTest {
         assertFalse(database.saveCandleIfNew(
                 "BTCUSDT", "1m", openTime, open, high, low, close, volume));
         assertTrue(database.hasCandle("BTCUSDT", "1m", openTime));
-        assertTrue("Stored history must not consume the live automation watermark",
-                database.claimAutomationCandle("BTCUSDT", "1m", openTime));
+        assertFalse("Stored history must not consume the live automation watermark",
+                database.isAutomationCandleProcessed("BTCUSDT", "1m", openTime));
 
         String decision = new AutoPaperTradingController(database).onCompletedCandle(
                 "BTCUSDT", "1m", close, low, high);
         assertTrue("Expected the backfilled candle's first paper evaluation: " + decision,
                 decision.contains("PAPER TRADE OPENED"));
-        assertFalse("The same candle must not be evaluated twice",
+        assertTrue("Evaluation completion should advance the durable watermark",
+                database.claimAutomationCandle("BTCUSDT", "1m", openTime));
+        assertTrue("A retry after completion must see the candle as processed",
+                database.isAutomationCandleProcessed("BTCUSDT", "1m", openTime));
+        assertFalse("The same candle must not advance the watermark twice",
                 database.claimAutomationCandle("BTCUSDT", "1m", openTime));
     }
 
