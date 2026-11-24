@@ -211,3 +211,11 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - The execution monitor now reports pipeline errors separately from normal entry blocks, waiting signals and simulator rejections.
 - This improves fault visibility; it does not claim that a device build or live-device test has passed.
 - Simulation only; Binance and real-money order execution remain disabled.
+
+
+## Build 0.5.46 — AI-to-controller pipeline self-test
+- Extends the disposable on-device self-test with synthetic one-minute candle data in its temporary SQLite database.
+- Verifies that the production learner trains and produces an assessment, the production automatic paper controller evaluates a completed candle and records an execution-audit decision, and the durable candle claim rejects a duplicate.
+- Keeps all test candles, model changes, audit records and any resulting simulated order inside the temporary test database, which is deleted after the test.
+- The test accepts legitimate entry-gate outcomes (such as insufficient qualifying signal) as controller decisions; it does not falsely claim every market condition must create a trade.
+- No exchange connection or real-money order path is added.
