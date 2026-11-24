@@ -532,8 +532,8 @@ public class PaperTradingLedgerTest {
     public void firstRunNeutralAiStillOpensClearlyLabelledLowRiskPaperProbe() {
         long now = System.currentTimeMillis();
         double price = 100.0;
-        for (int i = 0; i < 7; i++) {
-            long openTime = now - (6L - i) * 60000L - 10000L;
+        for (int i = 0; i < 3; i++) {
+            long openTime = now - (2L - i) * 60000L - 10000L;
             assertTrue(database.saveCandle("BTCUSDT", "1m", openTime,
                     price, price * 1.001, price * 0.999, price, 100.0));
         }
