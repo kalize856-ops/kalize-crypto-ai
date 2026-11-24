@@ -224,3 +224,8 @@ This is an educational simulator. Backtests and paper results do not predict or 
 ## Build 0.5.47
 
 The disposable simulator self-test now reports the AI stage (signal, confidence, probability, and learned sample counts) and the controller stage (full decision text, simulated positions opened, audit rows, and remaining virtual cash). If the AI qualifies but no position opens, the report explicitly points to the controller decision so a blocked entry is distinguishable from a missing execution. The test still uses a temporary database and does not modify the saved practice wallet.
+
+
+## Build 0.5.48
+
+The disposable simulator self-test now includes a required end-to-end AI entry check: it trains the on-device model on a controlled rising-candle dataset, verifies the resulting upward signal meets the 5% paper-entry threshold, calls the production automatic controller, and checks that a corresponding OPEN virtual-ledger position exists. The test uses its own temporary database and cannot spend or change the saved practice wallet. This is a simulator integration check, not evidence of live-market performance.
