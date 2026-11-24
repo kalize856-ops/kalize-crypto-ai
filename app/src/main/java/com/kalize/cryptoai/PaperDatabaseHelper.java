@@ -278,6 +278,21 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         finally { cursor.close(); }
     }
 
+    /** Checks the durable automation watermark without consuming the candle. */
+    public synchronized boolean isAutomationCandleProcessed(String symbol, String interval,
+                                                              long openTime) {
+        if (symbol == null || symbol.trim().length() == 0 ||
+                interval == null || interval.trim().length() == 0 || openTime <= 0L) {
+            return false;
+        }
+        String key = "auto_last_processed_candle_" +
+                symbol.trim().toUpperCase(java.util.Locale.US) + "_" + interval.trim();
+        long previousTime;
+        try { previousTime = Long.parseLong(getSetting(key, "0")); }
+        catch (Exception ignored) { previousTime = 0L; }
+        return openTime <= previousTime;
+    }
+
     /**
      * Claims a completed candle for automatic paper evaluation exactly once.
      * The per-symbol timestamp survives service reconnects and process restarts.
