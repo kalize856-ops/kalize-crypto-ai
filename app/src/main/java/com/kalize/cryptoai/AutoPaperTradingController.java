@@ -154,6 +154,8 @@ public final class AutoPaperTradingController {
         if (!"UPWARD BIAS".equals(assessment.signal) ||
                 assessment.confidence < MIN_CONFIDENCE) {
             if ("LEARNING".equals(assessment.signal)) {
+                String startupProbe = tryOpenFirstRunProbe(symbol, marketPrice);
+                if (startupProbe != null) return startupProbe;
                 return "NO ENTRY · AI feature window is still warming up; seven completed candles are required.";
             }
             String startupProbe = tryOpenFirstRunProbe(symbol, marketPrice);
