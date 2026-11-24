@@ -790,6 +790,41 @@ public class MainActivity extends Activity {
         java.text.SimpleDateFormat format =
                 new java.text.SimpleDateFormat("MMM d, HH:mm:ss", Locale.US);
         SQLiteDatabase db = database.getReadableDatabase();
+
+        // Account-level proof of simulator activity: count entries separately
+        // from closed outcomes so an open position is never mistaken for profit.
+        Cursor totals = db.rawQuery(
+                "SELECT COUNT(*), " +
+                "COALESCE(SUM(CASE WHEN status='OPEN' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN status='CLOSED' AND realized_pnl>0 THEN 1 ELSE 0 END),0), " +
+                "COALESCE(SUM(CASE WHEN status='CLOSED' THEN realized_pnl ELSE 0 END),0) " +
+                "FROM paper_trades", null);
+        try {
+            if (totals.moveToFirst()) {
+                out.append("PAPER ACCOUNT ACTIVITY")
+                        .append("\\nEntries opened: ").append(totals.getInt(0))
+                        .append(" · Open now: ").append(totals.getInt(1))
+                        .append(" · Closed: ").append(totals.getInt(2))
+                        .append("\\nProfitable closes: ").append(totals.getInt(3))
+                        .append(" · Realized net result: ").append(money(totals.getDouble(4)))
+                        .append("\\nVirtual cash available: ").append(money(database.getCashBalance()));
+            }
+        } finally { totals.close(); }
+
+        java.util.Calendar dayStart = java.util.Calendar.getInstance();
+        dayStart.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        dayStart.set(java.util.Calendar.MINUTE, 0);
+        dayStart.set(java.util.Calendar.SECOND, 0);
+        dayStart.set(java.util.Calendar.MILLISECOND, 0);
+        Cursor today = db.rawQuery(
+                "SELECT COUNT(*) FROM paper_trades WHERE opened_at>=?",
+                new String[]{String.valueOf(dayStart.getTimeInMillis())});
+        try {
+            if (today.moveToFirst()) out.append("\\nEntries opened today: ").append(today.getInt(0));
+        } finally { today.close(); }
+        out.append("\\n\\nPER-COIN EXECUTION STATUS");
+
         for (String symbol : symbols) {
             if (out.length() > 0) out.append("\n\n");
             OnDeviceLearningEngine.Assessment assessment =
