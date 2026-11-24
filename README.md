@@ -196,3 +196,10 @@ This is an educational simulator. Backtests and paper results do not predict or 
 - Checks that a virtual position opens, entry fees reduce cash, mark-to-market P/L updates, a close realizes net P/L, exit fees are included, the position is closed, and the wallet reconciles.
 - The temporary test database is closed and deleted after the check. The diagnostic never calls an exchange or changes the real practice ledger.
 - Corrects the execution monitor so its summary counts only the latest 100 audit decisions, matching the bounded audit history.
+
+
+## Build 0.5.44 — at-most-once candle execution
+- The service now atomically claims each completed candle's durable per-symbol watermark before running learning or paper-trade actions.
+- This closes the crash window where a trade could be recorded but the watermark not yet saved, allowing the same candle to be replayed after process restart.
+- The safety trade-off is explicit: if Android terminates the service after a claim but before evaluation finishes, that single candle may be skipped rather than replayed. Later candles continue normally.
+- No exchange order path is introduced; this remains a virtual-money simulator.
