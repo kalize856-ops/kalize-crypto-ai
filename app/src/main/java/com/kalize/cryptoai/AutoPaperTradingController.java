@@ -53,6 +53,8 @@ public final class AutoPaperTradingController {
                     decision == null ? "No decision returned." : decision);
             database.putSetting("auto_last_decision_at_" + symbol,
                     String.valueOf(System.currentTimeMillis()));
+            database.recordExecutionDecision(symbol, interval,
+                    decision == null ? "No decision returned." : decision);
         }
         return decision;
     }
