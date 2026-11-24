@@ -543,6 +543,7 @@ public class MainActivity extends Activity {
                 "\nUnrealized P/L (after exit costs)    " + money(unrealized) +
                 "\nRealized P/L (all time)    " + money(realized) +
                 "\nToday's realized P/L    " + money(tradingEngine.getTodayRealizedPnl()) +
+                "\nLedger reconciliation    " + (tradingEngine.reconcileLedger().consistent ? "OK" : "REVIEW REQUIRED") +
                 "\nStarting virtual balance    $100.00" +
                 "\nHighest virtual equity    " + money(equityPeak) +
                 "\nCurrent drawdown    " + money(drawdown) + " (" +
