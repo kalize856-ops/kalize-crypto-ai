@@ -1189,6 +1189,24 @@ public class MainActivity extends Activity {
                 else out.append("Price updates are late");
             }
         }
+        out.append("\n\nCONNECTION DIAGNOSTICS");
+        String feedStatus = database.getSetting("market_feed_status", "No connection status recorded yet");
+        String statusAt = database.getSetting("market_feed_status_at", "0");
+        String candleAt = database.getSetting("market_feed_last_candle_at", "0");
+        String candleSymbol = database.getSetting("market_feed_last_candle_symbol", "—");
+        out.append("\nFeed: ").append(feedStatus);
+        try {
+            long statusAge = Math.max(0L, now - Long.parseLong(statusAt)) / 1000L;
+            if (statusAge < 86400L) out.append(" · ").append(statusAge).append("s ago");
+        } catch (Exception ignored) { }
+        try {
+            long candleAge = Math.max(0L, now - Long.parseLong(candleAt)) / 1000L;
+            if (candleAge < 86400L) out.append("\nLast live candle: ").append(candleSymbol)
+                    .append(" · ").append(candleAge).append("s ago");
+            else out.append("\nLast live candle: no recent candle recorded");
+        } catch (Exception ignored) {
+            out.append("\nLast live candle: no recent candle recorded");
+        }
         out.append("\n\nIf prices are delayed, the AI may wait before making a new practice trade.");
         out.append("\n\n").append(database.getCandleStorageSummary());
         return out.toString();
