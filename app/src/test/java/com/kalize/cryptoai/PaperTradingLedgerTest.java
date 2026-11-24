@@ -249,6 +249,74 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void automaticPaperControllerClosesPositionWhenTakeProfitIsReached() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+        String opened = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+        assertTrue(opened, opened.contains("PAPER TRADE OPENED"));
+
+        SQLiteDatabase db = database.getReadableDatabase();
+        Cursor position = db.rawQuery(
+                "SELECT entry_price, stop_loss FROM paper_trades WHERE symbol='BTCUSDT' AND status='OPEN'",
+                null);
+        double entry;
+        double stop;
+        try {
+            assertTrue(position.moveToFirst());
+            entry = position.getDouble(0);
+            stop = position.getDouble(1);
+        } finally {
+            position.close();
+        }
+        double target = entry + ((entry - stop) * 2.0);
+
+        String exit = controller.onCompletedCandle(
+                "BTCUSDT", "1m", target, target * 0.999, target * 1.001);
+
+        assertTrue("Expected take-profit execution, got: " + exit,
+                exit.contains("TAKE-PROFIT EXECUTED"));
+        assertEquals(0, new PaperTradingEngine(database).getOpenPositionCount());
+        assertEquals(1, database.getClosedTradeCount());
+        assertTrue("Take-profit should record positive net P/L",
+                new PaperTradingEngine(database).getTodayRealizedPnl() > 0.0);
+    }
+
+    @Test
+    public void stopIsChosenConservativelyWhenOneCandleTouchesBothBarriers() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+        String opened = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+        assertTrue(opened, opened.contains("PAPER TRADE OPENED"));
+
+        SQLiteDatabase db = database.getReadableDatabase();
+        Cursor position = db.rawQuery(
+                "SELECT entry_price, stop_loss FROM paper_trades WHERE symbol='BTCUSDT' AND status='OPEN'",
+                null);
+        double entry;
+        double stop;
+        try {
+            assertTrue(position.moveToFirst());
+            entry = position.getDouble(0);
+            stop = position.getDouble(1);
+        } finally {
+            position.close();
+        }
+        double target = entry + ((entry - stop) * 2.0);
+
+        String exit = controller.onCompletedCandle(
+                "BTCUSDT", "1m", target, stop * 0.99, target * 1.001);
+
+        assertTrue("When both barriers are touched, stop must win: " + exit,
+                exit.contains("STOP EXECUTED"));
+        assertFalse(exit.contains("TAKE-PROFIT EXECUTED"));
+        assertEquals(0, new PaperTradingEngine(database).getOpenPositionCount());
+    }
+
+    @Test
     public void manualCloseStartsAutomaticReentryCooldown() {
         seedStrongUpwardCandles("BTCUSDT");
         PaperTradingEngine engine = new PaperTradingEngine(database);
