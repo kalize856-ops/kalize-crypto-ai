@@ -214,6 +214,31 @@ public class PaperTradingLedgerTest {
     }
 
     @Test
+    public void executionDecisionHistoryPersistsAndIsBounded() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        double price = latestClose("BTCUSDT");
+        String result = controller.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+        assertTrue(result, result.contains("PAPER TRADE OPENED"));
+        Cursor audit = database.getReadableDatabase().rawQuery(
+                "SELECT symbol, interval, decision FROM execution_audit ORDER BY id DESC LIMIT 1", null);
+        try {
+            assertTrue(audit.moveToFirst());
+            assertEquals("BTCUSDT", audit.getString(0));
+            assertEquals("1m", audit.getString(1));
+            assertTrue(audit.getString(2).contains("PAPER TRADE OPENED"));
+        } finally { audit.close(); }
+        for (int i = 0; i < 110; i++) {
+            database.recordExecutionDecision("ETHUSDT", "1m", "TEST AUDIT " + i);
+        }
+        Cursor count = database.getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM execution_audit", null);
+        try { assertTrue(count.moveToFirst()); assertEquals(100, count.getInt(0)); }
+        finally { count.close(); }
+    }
+
+    @Test
     public void automaticPaperControllerOpensPositionFromFreshUpwardSignal() {
         seedStrongUpwardCandles("BTCUSDT");
         AutoPaperTradingController controller = new AutoPaperTradingController(database);
