@@ -160,11 +160,12 @@ public final class AutoPaperTradingController {
         double equity = cash + trading.getOpenEntryValue();
         double stop = marketPrice * (1.0 - Double.parseDouble(STOP_DISTANCE));
         double riskBudget = equity * PaperTradingEngine.MAX_RISK_PER_TRADE;
-        double quantityByRisk = riskBudget / (marketPrice - stop);
-        double maxNotional = equity * PaperTradingEngine.MAX_POSITION_VALUE;
-        // Size against the simulator's slippage-adjusted fill, not the quoted price.
-        // Otherwise a position sized at exactly 25% is rejected after entry slippage.
+        // The ledger checks risk from the actual slippage-adjusted entry fill to
+        // the stop. Size against that same distance or every max-risk-sized entry
+        // can exceed the 1% limit by the amount of entry slippage and be rejected.
         double expectedExecutionPrice = marketPrice * (1.0 + PaperTradingEngine.SLIPPAGE_RATE);
+        double quantityByRisk = riskBudget / (expectedExecutionPrice - stop);
+        double maxNotional = equity * PaperTradingEngine.MAX_POSITION_VALUE;
         double quantityBySize = maxNotional / expectedExecutionPrice;
         double quantity = Math.min(quantityByRisk, quantityBySize);
 
