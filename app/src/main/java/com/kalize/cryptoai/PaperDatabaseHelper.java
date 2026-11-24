@@ -268,6 +268,16 @@ public final class PaperDatabaseHelper extends SQLiteOpenHelper {
         return inserted != -1L;
     }
 
+    /** Checks whether a completed candle is already present, including backfilled rows. */
+    public boolean hasCandle(String symbol, String interval, long openTime) {
+        if (symbol == null || interval == null || openTime <= 0L) return false;
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT 1 FROM candles WHERE symbol=? AND interval=? AND open_time=? LIMIT 1",
+                new String[]{symbol, interval, String.valueOf(openTime)});
+        try { return cursor.moveToFirst(); }
+        finally { cursor.close(); }
+    }
+
     /**
      * Claims a completed candle for automatic paper evaluation exactly once.
      * The per-symbol timestamp survives service reconnects and process restarts.
