@@ -101,6 +101,42 @@ public class PaperTradingLedgerTest {
         assertEquals(1, database.getStoredCandleCount());
     }
     @Test
+    public void disabledAutoModeBlocksNewEntriesAndPersistsAcrossControllerInstances() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        controller.setEnabled(false);
+
+        AutoPaperTradingController afterRestart = new AutoPaperTradingController(database);
+        assertFalse(afterRestart.isEnabled());
+        double price = latestClose("BTCUSDT");
+        String decision = afterRestart.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+
+        assertTrue("Expected OFF status, got: " + decision,
+                decision.contains("AUTO PAPER TRADING OFF"));
+        assertEquals(0, new PaperTradingEngine(database).getOpenPositionCount());
+        assertEquals("false", database.getSetting("auto_paper_trading", "missing"));
+    }
+
+    @Test
+    public void enablingAutoModePersistsAndAllowsFreshSignalEntry() {
+        seedStrongUpwardCandles("BTCUSDT");
+        AutoPaperTradingController controller = new AutoPaperTradingController(database);
+        controller.setEnabled(false);
+        controller.setEnabled(true);
+
+        AutoPaperTradingController afterRestart = new AutoPaperTradingController(database);
+        assertTrue(afterRestart.isEnabled());
+        double price = latestClose("BTCUSDT");
+        String decision = afterRestart.onCompletedCandle(
+                "BTCUSDT", "1m", price, price * 0.999, price * 1.001);
+
+        assertTrue("Expected a paper entry after re-enabling, got: " + decision,
+                decision.contains("PAPER TRADE OPENED"));
+        assertEquals(1, new PaperTradingEngine(database).getOpenPositionCount());
+    }
+
+    @Test
     public void automaticPaperControllerOpensPositionFromFreshUpwardSignal() {
         seedStrongUpwardCandles("BTCUSDT");
         AutoPaperTradingController controller = new AutoPaperTradingController(database);
@@ -152,7 +188,8 @@ public class PaperTradingLedgerTest {
             double close = 100.0 * Math.pow(1.05, i);
             long openTime = now - (6L - i) * 60000L - 10000L;
             assertTrue(database.saveCandle(symbol, "1m", openTime,
-                    previous, Math.max(previous, close) * 1.001,\n                    Math.min(previous, close) * 0.999, close, 10.0 + i));
+                    previous, Math.max(previous, close) * 1.001,
+                    Math.min(previous, close) * 0.999, close, 10.0 + i));
             previous = close;
         }
     }
