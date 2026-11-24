@@ -484,6 +484,8 @@ public final class MarketDataService extends Service {
             double volume = number(k.optString("v"));
             if (openTime <= 0 || !database.saveCandleIfNew(
                     symbol, "1m", openTime, open, high, low, close, volume)) return;
+            database.putSetting("market_feed_last_candle_at", String.valueOf(System.currentTimeMillis()));
+            database.putSetting("market_feed_last_candle_symbol", symbol);
 
             // The just-closed candle supplies the next label for the prior candle.
             learner.learn(symbol, "1m");
@@ -516,6 +518,14 @@ public final class MarketDataService extends Service {
     }
 
     private void broadcast(String status) {
+        // Persist the latest feed state so diagnostics survive Activity recreation.
+        try {
+            database.putSetting("market_feed_status", status);
+            database.putSetting("market_feed_status_at", String.valueOf(System.currentTimeMillis()));
+            if (status != null && status.startsWith("Connected")) {
+                database.putSetting("market_feed_connected_at", String.valueOf(System.currentTimeMillis()));
+            }
+        } catch (Exception ignored) { }
         Intent update = new Intent(ACTION_STATUS);
         update.setPackage(getPackageName());
         update.putExtra(EXTRA_STATUS, status);
