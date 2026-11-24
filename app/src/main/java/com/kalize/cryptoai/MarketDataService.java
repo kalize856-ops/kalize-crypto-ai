@@ -6,6 +6,11 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.database.Cursor;
 import android.os.Build;
 import android.os.Handler;
@@ -60,6 +65,32 @@ public final class MarketDataService extends Service {
     private boolean connecting = false;
     private int retrySeconds = 2;
     private Thread backfillThread;
+    private boolean connectivityReceiverRegistered = false;
+
+    // Recover long-lived sockets after Android Wi-Fi or hotspot handoffs.
+    private final BroadcastReceiver connectivityReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (stoppedByUser) return;
+            ConnectivityManager manager = (ConnectivityManager)
+                    getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo active = manager == null ? null : manager.getActiveNetworkInfo();
+            boolean available = active != null && active.isConnected();
+            if (!available) {
+                if (socket != null) socket.cancel();
+                socket = null;
+                connecting = false;
+                broadcast("Internet unavailable · waiting for network");
+                return;
+            }
+            handler.removeCallbacks(reconnect);
+            if (socket != null) socket.cancel();
+            socket = null;
+            connecting = false;
+            retrySeconds = 2;
+            broadcast("Network available · restarting market connection");
+            connect();
+        }
+    };
     private long lastMessageAt = 0L;
     private static final long STALE_FEED_MS = 90000L;
     private static final long CLEANUP_INTERVAL_MS = 6L * 60L * 60L * 1000L;
@@ -101,6 +132,11 @@ public final class MarketDataService extends Service {
         autoTrader = new AutoPaperTradingController(database);
         client = buildCompatibleClient();
         createNotificationChannel();
+        try {
+            registerReceiver(connectivityReceiver,
+                    new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+            connectivityReceiverRegistered = true;
+        } catch (Exception ignored) { }
         startHistoricalBackfill();
         handler.postDelayed(cleanupTask, CLEANUP_INTERVAL_MS);
         handler.postDelayed(staleFeedCheck, 30000L);
@@ -464,6 +500,10 @@ public final class MarketDataService extends Service {
         handler.removeCallbacks(staleFeedCheck);
         handler.removeCallbacks(backfillRetry);
         if (socket != null) socket.close(1000, "Service stopped");
+        if (connectivityReceiverRegistered) {
+            try { unregisterReceiver(connectivityReceiver); } catch (Exception ignored) { }
+            connectivityReceiverRegistered = false;
+        }
         if (client != null) client.dispatcher().executorService().shutdown();
         if (backfillThread != null) backfillThread.interrupt();
         if (database != null) database.closeStore();
