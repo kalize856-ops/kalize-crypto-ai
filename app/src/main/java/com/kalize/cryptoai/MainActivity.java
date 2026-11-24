@@ -149,6 +149,18 @@ public class MainActivity extends Activity {
         marketStatus = addPanel("MARKET CONNECTION",
                 "Starting persistent WebSocket connection…\nBTC / USDT    waiting\n" +
                 "ETH / USDT    waiting\nSOL / USDT    waiting\nCandle interval: 1 minute");
+        Button reconnectMarket = new Button(this);
+        styleButton(reconnectMarket, false);
+        reconnectMarket.setText("Retry market connection");
+        reconnectMarket.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                MarketStreamStarter.reconnect(MainActivity.this);
+                Toast.makeText(MainActivity.this,
+                        "Market connection retry requested", Toast.LENGTH_SHORT).show();
+            }
+        });
+        content.addView(reconnectMarket, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         marketQuotes = addPanel("COIN PRICES",
                 "Waiting for live coin prices…");
         marketHealthPanel = addPanel("MARKET DATA STATUS", loadMarketHealth());
