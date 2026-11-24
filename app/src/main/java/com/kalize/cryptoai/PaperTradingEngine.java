@@ -86,7 +86,7 @@ public final class PaperTradingEngine {
         try {
             double cash=scalar(db,"SELECT cash_balance FROM wallet WHERE id=1");
             double dailyPnl=scalar(db,"SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED' AND closed_at >= "+
-                    (System.currentTimeMillis()-(System.currentTimeMillis()%86400000L)));
+                    startOfLocalDayMillis());
             double startingBalance=scalar(db,"SELECT starting_balance FROM wallet WHERE id=1");
             if(cash<=0.005) return fail("Virtual cash is depleted. Reset the simulation to start a new paper account.");
             if(dailyPnl<=-(startingBalance*DAILY_LOSS_LIMIT))
@@ -184,8 +184,18 @@ public final class PaperTradingEngine {
     public double getOpenEntryValue() {
         return scalar(helper.getReadableDatabase(),"SELECT COALESCE(SUM(quantity*entry_price),0) FROM paper_trades WHERE status='OPEN'");
     }
+    /** Uses the device's local calendar day so daily limits reset at local midnight. */
+    static long startOfLocalDayMillis() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        calendar.set(java.util.Calendar.MINUTE, 0);
+        calendar.set(java.util.Calendar.SECOND, 0);
+        calendar.set(java.util.Calendar.MILLISECOND, 0);
+        return calendar.getTimeInMillis();
+    }
+
     public double getTodayRealizedPnl() {
-        long start=System.currentTimeMillis()-(System.currentTimeMillis()%86400000L);
+        long start=startOfLocalDayMillis();
         return scalar(helper.getReadableDatabase(),"SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED' AND closed_at>="+start);
     }
     public boolean isDailyLossLimitReached() {
