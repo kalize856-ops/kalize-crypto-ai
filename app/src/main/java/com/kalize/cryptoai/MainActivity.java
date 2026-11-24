@@ -477,6 +477,7 @@ public class MainActivity extends Activity {
         SQLiteDatabase db = database.getReadableDatabase();
         double cash = database.getCashBalance();
         double marketValue = 0.0;
+        double liquidationValue = 0.0;
         double unrealized = 0.0;
         Cursor positions = db.rawQuery(
                 "SELECT symbol,quantity,entry_price,fees,stop_loss FROM paper_trades WHERE status='OPEN' ORDER BY opened_at DESC",
@@ -494,9 +495,12 @@ public class MainActivity extends Activity {
                 boolean hasMarketPrice = price > 0.0;
                 if (!hasMarketPrice) price = entry;
                 double value = quantity * price;
-                double pnl = quantity * (price - entry) - entryFees - value * PaperTradingEngine.FEE_RATE;
+                double netLiquidation = PaperTradingEngine.estimateNetLiquidationValue(quantity, price);
+                double pnl = PaperTradingEngine.estimateUnrealizedPnl(
+                        quantity, entry, entryFees, price);
                 double target = entry + ((entry - stop) * 2.0);
                 marketValue += value;
+                liquidationValue += netLiquidation;
                 unrealized += pnl;
                 if (open.length() > 0) open.append("\n\n");
                 open.append(symbol.replace("USDT", "/USDT"))
@@ -514,7 +518,8 @@ public class MainActivity extends Activity {
             }
         } finally { positions.close(); }
         if (open.length() == 0) open.append("No open positions.");
-        double equity = cash + marketValue;
+        // Equity assumes open positions are liquidated now, net of exit slippage and fees.
+        double equity = cash + liquidationValue;
         updateProfitBubble(equity);
         double realized = scalar(db,
                 "SELECT COALESCE(SUM(realized_pnl),0) FROM paper_trades WHERE status='CLOSED'");
@@ -533,8 +538,9 @@ public class MainActivity extends Activity {
         portfolioPanel.setText((cashDepleted ? "VIRTUAL CASH DEPLETED · NEW TRADES PAUSED\n" : "") +
                 "Total virtual equity    " + money(equity) +
                 "\nVirtual cash    " + money(cash) +
-                "\nOpen position value    " + money(marketValue) +
-                "\nUnrealized P/L    " + money(unrealized) +
+                "\nOpen position value (gross)    " + money(marketValue) +
+                "\nEstimated net liquidation value    " + money(liquidationValue) +
+                "\nUnrealized P/L (after exit costs)    " + money(unrealized) +
                 "\nRealized P/L (all time)    " + money(realized) +
                 "\nToday's realized P/L    " + money(tradingEngine.getTodayRealizedPnl()) +
                 "\nStarting virtual balance    $100.00" +
