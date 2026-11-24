@@ -236,3 +236,11 @@ The disposable simulator self-test now includes a required end-to-end AI entry c
 - Extends each per-market execution monitor entry with the model's raw probability and the timestamp of the latest completed candle, alongside signal, confidence, freshness, decision and trade counts.
 - Keeps the trace read-only: it does not change entry rules, virtual balances, risk limits or exchange connectivity.
 - Android build and device verification are still required before treating runtime behavior as confirmed.
+
+
+## Build 0.5.50 — explicit daily-loss entry pause
+- The automatic controller now checks the daily simulated loss limit before evaluating a fresh entry and records a clear `ENTRY BLOCKED` decision.
+- Stop-loss and take-profit processing remains ahead of this gate, so existing open practice positions continue to be monitored and can still close.
+- The portfolio panel explicitly reports whether the daily loss guard is active.
+- The disposable production-controller self-test now includes a daily-loss guard assertion using only its temporary database.
+- This is paper-only risk control. Build and device verification remain outstanding.
