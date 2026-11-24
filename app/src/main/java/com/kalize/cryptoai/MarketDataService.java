@@ -203,11 +203,8 @@ public final class MarketDataService extends Service {
                 if (socket == webSocket) {
                     socket = null;
                     connecting = false;
-                    String detail = error == null ? "Unknown network error" :
-                            error.getClass().getSimpleName() +
-                            (error.getMessage() == null ? "" : ": " + error.getMessage());
-                    if (response != null) detail += " · HTTP " + response.code();
-                    broadcast("Market connection failed · " + detail + " · reconnecting");
+                    String detail = describeNetworkFailure(error, response);
+                    broadcast("Market connection failed · " + detail + " · retrying automatically");
                     updateNotification("Connection failed · retrying");
                     scheduleReconnect();
                 }
@@ -283,6 +280,30 @@ public final class MarketDataService extends Service {
         @Override public Socket createSocket() throws IOException { return enableTls12(delegate.createSocket()); }
     }
 
+    /** Converts common Android network failures into actionable, non-technical status text. */
+    private String describeNetworkFailure(Throwable error, Response response) {
+        if (response != null) return "server returned HTTP " + response.code();
+        if (error == null) return "unknown network error";
+        Throwable cause = error;
+        while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+        if (cause instanceof java.net.UnknownHostException)
+            return "DNS lookup failed; check internet or hotspot DNS";
+        if (cause instanceof javax.net.ssl.SSLHandshakeException ||
+                cause instanceof javax.net.ssl.SSLPeerUnverifiedException)
+            return "secure TLS handshake failed; device certificates or TLS support may be outdated";
+        if (cause instanceof java.security.cert.CertificateException)
+            return "server certificate could not be verified; check device date and system certificates";
+        if (cause instanceof java.net.SocketTimeoutException)
+            return "connection timed out; network may be slow or blocking the feed";
+        if (cause instanceof java.net.ConnectException)
+            return "server connection was refused or unreachable";
+        if (cause instanceof java.net.UnknownServiceException)
+            return "secure WebSocket protocol is not supported by this device";
+        String message = cause.getMessage();
+        return cause.getClass().getSimpleName() +
+                (message == null || message.length() == 0 ? "" : ": " + message);
+    }
+
     /** Downloads up to 1 hour of completed one-minute candles without blocking the feed. */
     private void startHistoricalBackfill() {
         if (stoppedByUser || (backfillThread != null && backfillThread.isAlive())) return;
@@ -352,7 +373,8 @@ public final class MarketDataService extends Service {
                     broadcast("1-hour history ready · AI learning active");
                     updateNotification("1-hour history ready · live feed active");
                 } catch (Exception error) {
-                    broadcast("Historical backfill paused · will retry in 5 minutes · live feed remains active");
+                    broadcast("History download failed · " + describeNetworkFailure(error, null) +
+                            " · retry in 5 minutes; live feed will continue");
                     handler.removeCallbacks(backfillRetry);
                     handler.postDelayed(backfillRetry, BACKFILL_RETRY_MS);
                 }
