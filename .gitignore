@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+paper_state.json
+paper_state.tmp
+kalize_bot.log
